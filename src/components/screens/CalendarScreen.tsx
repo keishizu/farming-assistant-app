@@ -34,7 +34,7 @@ export default function CalendarScreen() {
           selected={date}
           onSelect={(newDate) => {
             setDate(newDate);
-            setSelectedDate(newDate);
+            setSelectedDate(newDate || null);
           }}
           modifiers={{
             hasActivity: (date) => hasActivity(date),
