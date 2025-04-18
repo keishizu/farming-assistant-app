@@ -43,8 +43,8 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
   const [name, setName] = useState(crop.name);
   const [startDate, setStartDate] = useState(format(crop.startDate, "yyyy-MM-dd"));
   const [memo, setMemo] = useState(crop.memo || "");
-  const [tasks, setTasks] = useState<CropTask[]>(crop.tasks);
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
+  const [pendingTasks, setPendingTasks] = useState<CropTask[]>(crop.tasks);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +54,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
       name,
       startDate: new Date(startDate),
       memo: memo || undefined,
-      tasks: tasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
+      tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
     };
 
     onUpdate(updatedCrop);
@@ -77,27 +77,32 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
   };
 
   const handleSaveTask = (task: CropTask) => {
-    const taskExists = tasks.some(t => t.id === task.id);
+    const taskExists = pendingTasks.some(t => t.id === task.id);
     
     if (taskExists) {
-      // 既存のタスクを更新
-      const updatedTasks = tasks.map(t => 
-        t.id === task.id ? task : t
-      );
-      setTasks(updatedTasks);
+      setPendingTasks(pendingTasks.map(t => t.id === task.id ? task : t));
     } else {
-      // 新しいタスクを追加
-      setTasks([...tasks, task]);
+      setPendingTasks([...pendingTasks, task]);
     }
     setEditingTask(null);
   };
 
   const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
+    setPendingTasks(pendingTasks.filter(task => task.id !== taskId));
+  };
+
+  // モーダルが閉じられた時にフォームをリセット
+  const handleClose = () => {
+    setName(crop.name);
+    setStartDate(format(crop.startDate, "yyyy-MM-dd"));
+    setMemo(crop.memo || "");
+    setPendingTasks(crop.tasks);
+    setEditingTask(null);
+    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>作物を編集</DialogTitle>
@@ -152,7 +157,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
             )}
 
             <div className="space-y-2">
-              {tasks.map(task => (
+              {pendingTasks.map(task => (
                 <div
                   key={task.id}
                   className="flex items-center justify-between p-2 border rounded"
@@ -188,12 +193,11 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button type="submit">保存</Button>
-          </div>
+          {!editingTask && (
+            <div className="flex justify-end">
+              <Button type="submit">保存</Button>
+            </div>
+          )}
         </form>
       </DialogContent>
     </Dialog>
