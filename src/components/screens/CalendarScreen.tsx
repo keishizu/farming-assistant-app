@@ -1,73 +1,126 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { format } from "date-fns";
+import { format, isWithinInterval, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import "@/app/calendar/calendar.css";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
+import { TaskDisplayRange, WorkRecord } from "@/types/calendar";
 
 export default function CalendarScreen() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [tasks, setTasks] = useState<TaskDisplayRange[]>([]);
+  const [workRecords, setWorkRecords] = useState<WorkRecord[]>([]);
 
-  // Mock data - replace with real data
-  const hasActivity = (date: Date) => {
-    return Math.random() > 0.7;
+  useEffect(() => {
+    setMounted(true);
+    // TODO: 実際のデータを取得する処理を追加
+  }, []);
+  
+
+  const formatMonthYear = (_locale: string | undefined, date: Date) => {
+    return format(date, "yyyy年M月", { locale: ja });
   };
 
+  const formatShortWeekday = (_locale: string | undefined, date: Date) => {
+    return format(date, "E", { locale: ja });
+  };
+
+  const isDateInTaskRange = (date: Date, task: TaskDisplayRange) => {
+    const startDate = parseISO(task.startDate);
+    const endDate = parseISO(task.endDate);
+    return isWithinInterval(date, { start: startDate, end: endDate });
+  };
+
+  const getWorkRecordsForDate = (date: Date) => {
+    return workRecords.filter(record => {
+      const recordDate = parseISO(record.createdAt);
+      return format(recordDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd");
+    });
+  };
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <div className="max-w-md mx-auto p-4 space-y-6">
+    <div className="max-w-6xl mx-auto p-4 space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center"
       >
         <h1 className="text-2xl font-semibold text-green-800">農作業カレンダー</h1>
-        <p className="text-gray-600">農作業の記録を確認</p>
+        <p className="text-gray-600">予定と実績を確認</p>
       </motion.div>
 
-      <Card className="p-4">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={(newDate) => {
-            setDate(newDate);
-            setSelectedDate(newDate || null);
-          }}
-          modifiers={{
-            hasActivity: (date) => hasActivity(date),
-          }}
-          modifiersStyles={{
-            hasActivity: {
-              backgroundColor: "#dcfce7",
-            },
-          }}
-          className="rounded-md border"
-          locale={ja}
-        />
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4 text-center text-green-800">予定カレンダー</h2>
+          <Calendar
+            className="w-full"
+            locale="ja"
+            calendarType="gregory"
+            formatMonthYear={formatMonthYear}
+            formatShortWeekday={formatShortWeekday}
+            tileContent={({ date }) => {
+              const dayTasks = tasks.filter(task => isDateInTaskRange(date, task));
 
-      <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedDate && format(selectedDate, "yyyy年 M月 d日 (EEEE)", { locale: ja })}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg">
-              <h3 className="font-medium text-green-800">午前の作業</h3>
-              <p className="text-sm text-gray-600">水やり - トマト</p>
-            </div>
-            <div className="p-4 bg-orange-50 rounded-lg">
-              <h3 className="font-medium text-orange-800">午後の作業</h3>
-              <p className="text-sm text-gray-600">収穫 - にんじん</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+              if (dayTasks.length === 0) return null;
+
+              return (
+                <div className="mt-1">
+                  {dayTasks.map(task => (
+                    <div
+                      key={task.id}
+                      className="text-xs bg-green-100 text-green-800 rounded px-1 py-0.5 mb-1 truncate"
+                    >
+                      {task.cropName}: {task.taskName}
+                    </div>
+                  ))}
+                </div>
+              );
+            }}
+          />
+        </Card>
+
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4 text-center text-blue-800">実績カレンダー</h2>
+          <Calendar
+            className="w-full"
+            locale="ja"
+            calendarType="gregory"
+            formatMonthYear={formatMonthYear}
+            formatShortWeekday={formatShortWeekday}
+            tileContent={({ date }) => {
+              const dayRecords = getWorkRecordsForDate(date);
+
+              if (dayRecords.length === 0) return null;
+
+              return (
+                <div className="mt-1">
+                  {dayRecords.map(record => (
+                    <div
+                      key={record.id}
+                      className="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 mb-1 truncate"
+                    >
+                      {record.crop}: {record.task}
+                      {record.memo && (
+                        <span className="block text-gray-600 text-[10px] mt-1">
+                          {record.memo}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            }}
+          />
+        </Card>
+      </div>
     </div>
   );
 }

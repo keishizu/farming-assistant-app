@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, Edit } from "lucide-react";
-import { CustomCrop } from "@/lib/types/crop";
+import { CustomCrop } from "@/types/crop";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { EditCropModal } from "./edit-crop-modal";

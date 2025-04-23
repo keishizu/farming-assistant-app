@@ -1,5 +1,5 @@
-import CalendarScreen from '@/components/screens/CalendarScreen';
+import CalendarScreen from "@/components/screens/CalendarScreen";
 
-export default function Calendar() {
+export default function CalendarPage() {
   return <CalendarScreen />;
-}
+} 

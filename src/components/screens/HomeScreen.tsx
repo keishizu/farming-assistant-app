@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Repeat, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { saveFarmRecord, getLatestFarmRecord } from "@/lib/utils/farm-storage";
-import { NewFarmRecord } from "@/lib/types/farm";
+import { NewFarmRecord } from "@/types/farm";
 import Image from "next/image";
 
 const crops = ["トマト", "レタス", "にんじん", "じゃがいも", "とうもろこし", "その他"];
