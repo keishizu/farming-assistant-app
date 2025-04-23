@@ -2,13 +2,25 @@
 
 import { format, isWithinInterval, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import Calendar from "react-calendar";
+import CustomCalendar from "@/app/calendar/components/CustomCalendar";
 import "react-calendar/dist/Calendar.css";
 import "@/app/calendar/calendar.css";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { TaskDisplayRange, WorkRecord } from "@/types/calendar";
+
+const formatDay = (locale: string | undefined, date: Date): string => {
+  return date.getDate().toString(); // "6日" ではなく "6" にする
+};
+
+const formatMonthYear = (locale: string | undefined, date: Date): string => {
+  return format(date, "yyyy年M月", { locale: ja });
+};
+
+const formatShortWeekday = (locale: string | undefined, date: Date): string => {
+  return format(date, "E", { locale: ja });
+};
 
 export default function CalendarScreen() {
   const [mounted, setMounted] = useState(false);
@@ -17,17 +29,8 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     setMounted(true);
-    // TODO: 実際のデータを取得する処理を追加
+    // TODO: 実データ取得処理
   }, []);
-  
-
-  const formatMonthYear = (_locale: string | undefined, date: Date) => {
-    return format(date, "yyyy年M月", { locale: ja });
-  };
-
-  const formatShortWeekday = (_locale: string | undefined, date: Date) => {
-    return format(date, "E", { locale: ja });
-  };
 
   const isDateInTaskRange = (date: Date, task: TaskDisplayRange) => {
     const startDate = parseISO(task.startDate);
@@ -42,9 +45,7 @@ export default function CalendarScreen() {
     });
   };
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
@@ -58,17 +59,18 @@ export default function CalendarScreen() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 予定カレンダー */}
         <Card className="p-4">
           <h2 className="text-lg font-semibold mb-4 text-center text-green-800">予定カレンダー</h2>
-          <Calendar
+          <CustomCalendar
             className="w-full"
             locale="ja"
             calendarType="gregory"
             formatMonthYear={formatMonthYear}
             formatShortWeekday={formatShortWeekday}
+            formatDay={formatDay}
             tileContent={({ date }) => {
               const dayTasks = tasks.filter(task => isDateInTaskRange(date, task));
-
               if (dayTasks.length === 0) return null;
 
               return (
@@ -87,17 +89,18 @@ export default function CalendarScreen() {
           />
         </Card>
 
+        {/* 実績カレンダー */}
         <Card className="p-4">
           <h2 className="text-lg font-semibold mb-4 text-center text-blue-800">実績カレンダー</h2>
-          <Calendar
+          <CustomCalendar
             className="w-full"
             locale="ja"
             calendarType="gregory"
             formatMonthYear={formatMonthYear}
             formatShortWeekday={formatShortWeekday}
+            formatDay={formatDay}
             tileContent={({ date }) => {
               const dayRecords = getWorkRecordsForDate(date);
-
               if (dayRecords.length === 0) return null;
 
               return (

@@ -45,3 +45,16 @@
 .react-calendar__tile--hasContent::after {
   @apply content-[''] absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-green-500;
 } 
+
+/* 曜日ごとの色変更 */
+.saturday-blue {
+  @apply text-blue-500;
+}
+
+.sunday-red {
+  @apply text-red-500;
+}
+
+.holiday-red {
+  @apply text-red-600 font-semibold;
+}
