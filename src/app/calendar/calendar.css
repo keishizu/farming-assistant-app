@@ -1,60 +1,162 @@
-.react-calendar {
-  @apply w-full border-none bg-white rounded-lg shadow-sm;
+.task-bar {
+  background-color: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 2px 8px;
+  margin: 2px 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 4px;
 }
 
-.react-calendar__navigation {
-  @apply flex items-center justify-between mb-4;
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: #e5e7eb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
-.react-calendar__navigation button {
-  @apply text-gray-600 hover:text-green-700 p-2 rounded-full hover:bg-green-50;
+.calendar-header {
+  background-color: #f3f4f6;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
-.react-calendar__navigation__label {
-  @apply text-lg font-semibold text-gray-800;
+.calendar-cell {
+  background-color: white;
+  min-height: 100px;
+  padding: 0.5rem;
+  position: relative;
 }
 
-.react-calendar__month-view__weekdays {
-  @apply text-xs text-gray-500 mb-2;
+.calendar-cell:hover {
+  background-color: #f8fafc;
 }
 
-.react-calendar__month-view__weekdays__weekday {
-  @apply text-center;
+.calendar-cell.today {
+  background-color: #f0fdf4;
+  border-color: #86efac;
 }
 
-.react-calendar__month-view__weekdays__weekday abbr {
-  @apply no-underline;
+.calendar-cell.other-month {
+  opacity: 0.5;
+  background-color: #f9fafb;
+  color: #9ca3af;
 }
 
-.react-calendar__tile {
-  @apply p-2 text-sm rounded-md hover:bg-green-50 transition-colors;
+.calendar-date {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
 }
 
-.react-calendar__tile--now {
-  @apply bg-green-100 text-green-800 font-medium;
+.calendar-event {
+  font-size: 0.75rem;
+  color: #047857;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  background-color: #f0fdf4;
+  margin-bottom: 0.25rem;
 }
 
-.react-calendar__tile--active {
-  @apply bg-green-600 text-white hover:bg-green-700;
+.calendar-event:hover {
+  background-color: #dcfce7;
+  border-color: #86efac;
 }
 
-.react-calendar__tile--hasContent {
-  @apply relative;
+.today {
+  background-color: #f0fdf4;
 }
 
-.react-calendar__tile--hasContent::after {
-  @apply content-[''] absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-green-500;
-} 
-
-/* 曜日ごとの色変更 */
-.saturday-blue {
-  @apply text-blue-500;
+.other-month {
+  background-color: #f9fafb;
+  color: #9ca3af;
 }
 
-.sunday-red {
-  @apply text-red-500;
+.task-bar {
+  background-color: #dcfce7;
+  color: #166534;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.holiday-red {
-  @apply text-red-600 font-semibold;
+.record-bar {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 640px) {
+  .calendar-grid {
+    gap: 0.5px;
+  }
+
+  .calendar-header {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .calendar-cell {
+    min-height: 80px;
+    padding: 0.25rem;
+  }
+
+  .calendar-date {
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .task-bar,
+  .record-bar {
+    font-size: 0.625rem;
+    padding: 0.125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-cell {
+    min-height: 60px;
+  }
+
+  .calendar-date {
+    font-size: 0.75rem;
+  }
+
+  .task-bar,
+  .record-bar {
+    font-size: 0.5rem;
+  }
+}
+
+/* 帯（タスクバー）の形状分岐 */
+.task-bar {
+  background-color: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 2px 8px;
+  margin: 2px 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  top: 0;
+  left: 0;
 }

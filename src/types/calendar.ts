@@ -1,21 +1,27 @@
-export type TaskDisplayRange = {
+export interface Task {
   id: string;
   cropName: string;
   taskName: string;
-  startDate: string;
-  endDate: string;
-};
+  startDate: string; // ISO形式 "2025-04-26"
+  endDate: string;   // ISO形式 "2025-04-28"
+  memo?: string;
+}
 
-export type WorkRecord = {
+export interface Record {
   id: string;
-  crop: string;
-  task: string;
+  cropName: string;
+  taskName: string;
+  date: Date;
   memo?: string;
   photoUrl?: string;
-  createdAt: string;
-};
+}
 
 export interface ScheduleCalendarProps {
-  tasks: TaskDisplayRange[];
-  workRecords: WorkRecord[];
+  tasks: Task[];
+}
+
+export interface RecordCalendarProps {
+  records: Record[];
 } 
+
+
