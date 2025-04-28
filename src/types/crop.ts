@@ -1,16 +1,20 @@
-export type TaskType = "field" | "planting" | "care" | "harvest";
+export type TaskType = "field" | "planting" | "care" | "harvest" | "mulch" | "fertilizer" | "weed" | "pest" | "other";
 
 export interface TaskTypeConfig {
   type: TaskType;
-  iconName: string;
   label: string;
 }
 
 export const TASK_TYPES: TaskTypeConfig[] = [
-  { type: "field", iconName: "Tractor", label: "畑作り" },
-  { type: "planting", iconName: "Sprout", label: "定植" },
-  { type: "care", iconName: "Droplets", label: "管理" },
-  { type: "harvest", iconName: "Wheat", label: "収穫" },
+  { type: "field", label: "耕耘" },
+  { type: "planting", label: "定植" },
+  { type: "care",  label: "水やり" },
+  { type: "harvest",  label: "収穫" },
+  { type: "mulch", label: "マルチ張り" },
+  { type: "fertilizer", label: "追肥" },
+  { type: "weed", label: "除草" },
+  { type: "pest", label: "害虫獣対策" },
+  { type: "other", label: "その他" },
 ];
 
 export interface CropTask {
@@ -19,6 +23,7 @@ export interface CropTask {
   label: string;
   taskType: TaskType;
   duration: number; // 作業日数（正の整数）
+  memo?: string;
 }
 
 export interface CustomCrop {

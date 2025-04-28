@@ -22,6 +22,7 @@ export interface ScheduleCalendarProps {
 
 export interface RecordCalendarProps {
   records: Record[];
+  onUpdate?: (records: Record[]) => void;
 } 
 
 

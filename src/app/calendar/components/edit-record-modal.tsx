@@ -1,52 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
-import { Card } from "@/components/ui/card";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { saveFarmRecord } from "@/services/farm-storage";
-import { NewFarmRecord } from "@/types/farm";
+import { updateFarmRecord } from "@/services/farm-storage";
+import { FarmRecord } from "@/types/farm";
 import { TASK_TYPES } from "@/types/crop";
 import { getCropNames } from "@/services/crop-storage";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { DatePicker } from "@/components/ui/date-picker";
+
+interface EditRecordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  record: FarmRecord;
+  onUpdate: (record: FarmRecord) => void;
+}
 
 const tasks = TASK_TYPES.map((task) => task.label);
 
-export default function HomeScreen() {
-  const [crop, setCrop] = useState("");
-  const [task, setTask] = useState("");
-  const [memo, setMemo] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecordModalProps) {
+  const [crop, setCrop] = useState(record.crop);
+  const [task, setTask] = useState(record.task);
+  const [memo, setMemo] = useState(record.memo || "");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(record.photoUrl || null);
   const [availableCrops, setAvailableCrops] = useState<string[]>([]);
-  const [workDate, setWorkDate] = useState(new Date());
   const { toast } = useToast();
-  const router = useRouter();
 
-  useEffect(() => {
-    // 保存された作物名を取得
+  // 作物名の一覧を取得
+  useState(() => {
     const crops = getCropNames();
     setAvailableCrops(crops);
-    
-    if (crops.length === 0) {
-      const { dismiss } = toast({
-        title: "エラー",
-        description: "作物スケジュールに作物が登録されていません。先に作物スケジュール画面で作物を登録してください。",
-        variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
-      });
-    }
-  }, [toast]);
+  });
 
   const handleSave = () => {
     if (!crop || !task) {
@@ -60,34 +49,24 @@ export default function HomeScreen() {
       return;
     }
 
-    const record: NewFarmRecord = {
-      userId: "demo-user",
-      date: format(workDate, "yyyy-MM-dd"),
-      crop: crop,
-      task: task,
+    const updatedRecord = updateFarmRecord(record.id, {
+      crop,
+      task,
       memo: memo || undefined,
       photoUrl: photoUrl || undefined,
-    };
-
-    saveFarmRecord(record);
-
-    // 保存完了のトーストを表示
-    const { dismiss } = toast({
-      title: "保存しました",
-      description: `${crop}の${task}を記録しました`,
-      duration: 5000,
-      onClick: () => dismiss(),
     });
 
-    // フォームをリセット
-    setCrop("");
-    setTask("");
-    setMemo("");
-    setPhotoUrl("");
-    setWorkDate(new Date());
+    if (updatedRecord) {
+      onUpdate(updatedRecord);
+      onClose();
 
-    // カレンダー画面を更新
-    router.refresh();
+      const { dismiss } = toast({
+        title: "更新しました",
+        description: `${crop}の${task}を更新しました`,
+        duration: 5000,
+        onClick: () => dismiss(),
+      });
+    }
   };
 
   const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,28 +92,12 @@ export default function HomeScreen() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center"
-      >
-        <h1 className="text-2xl font-semibold text-green-800">
-          {format(new Date(), "yyyy年 M月 d日 (EEEE)", { locale: ja })}
-        </h1>
-        <p className="text-gray-600">本日の農作業を記録</p>
-      </motion.div>
-
-      <Card className="p-6 space-y-6">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>作業実績を編集</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="workDate">作業日</Label>
-            <DatePicker
-              date={workDate}
-              onSelect={setWorkDate}
-            />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="crop">作物選択</Label>
             <Select value={crop} onValueChange={setCrop}>
@@ -218,15 +181,15 @@ export default function HomeScreen() {
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Button 
-            className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
-            onClick={handleSave}
-          >
-            作業を記録する
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave}>
+            保存
           </Button>
         </div>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-}
+} 

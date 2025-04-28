@@ -1,4 +1,4 @@
-import { FarmRecord, NewFarmRecord } from "@/lib/types/farm";
+import { FarmRecord, NewFarmRecord } from "@/types/farm";
 import { v4 as uuidv4 } from "uuid";
 
 const STORAGE_KEY = "farm_records";
@@ -36,4 +36,33 @@ export const saveFarmRecord = (data: NewFarmRecord): FarmRecord => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
 
   return newRecord;
+};
+
+// レコードを更新
+export const updateFarmRecord = (id: string, data: Partial<NewFarmRecord>): FarmRecord | null => {
+  const records = getFarmRecords();
+  const recordIndex = records.findIndex(record => record.id === id);
+  
+  if (recordIndex === -1) return null;
+  
+  const updatedRecord = {
+    ...records[recordIndex],
+    ...data,
+  };
+  
+  records[recordIndex] = updatedRecord;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  
+  return updatedRecord;
+};
+
+// レコードを削除
+export const deleteFarmRecord = (id: string): boolean => {
+  const records = getFarmRecords();
+  const updatedRecords = records.filter(record => record.id !== id);
+  
+  if (updatedRecords.length === records.length) return false;
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
+  return true;
 }; 

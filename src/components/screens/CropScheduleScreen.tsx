@@ -8,7 +8,7 @@ import { AddCropModal } from "@/app/crop-schedule/components/add-crop-modal";
 import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { saveCrops, getCrops } from "@/lib/utils/crop-storage";
+import { saveCrops, getCrops } from "@/services/crop-storage";
 
 export default function CropScheduleScreen() {
   const [crops, setCrops] = useState<CustomCrop[]>([]);

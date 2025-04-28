@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tractor, Sprout, Droplets, Wheat } from "lucide-react";
+
 
 interface AddCropModalProps {
   isOpen: boolean;
@@ -160,10 +160,17 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
                     className="flex items-center justify-between p-2 border rounded"
                   >
                     <div>
-                      <p className="font-medium">{task.label}</p>
+                      <p className="font-medium">
+                        {TASK_TYPES.find(t => t.type === task.taskType)?.label}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {formatTaskDateRange(task)}
                       </p>
+                      {task.memo && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {task.memo}
+                        </p>
+                      )}
                     </div>
                     <div className="flex space-x-2">
                       <Button
@@ -209,9 +216,9 @@ interface TaskFormProps {
 
 function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
   const [daysFromStart, setDaysFromStart] = useState(task.daysFromStart);
-  const [label, setLabel] = useState(task.label);
   const [taskType, setTaskType] = useState<TaskType>(task.taskType);
   const [duration, setDuration] = useState(task.duration || 1);
+  const [memo, setMemo] = useState(task.memo || "");
   const [error, setError] = useState("");
   const [daysError, setDaysError] = useState("");
   const [daysInput, setDaysInput] = useState(task.daysFromStart === 0 ? "" : task.daysFromStart.toString());
@@ -247,10 +254,6 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
   };
 
   const handleSave = () => {
-    if (!label.trim()) {
-      setError("作業名を入力してください");
-      return;
-    }
     if (isNaN(daysFromStart)) {
       setDaysError("数値を入力してください");
       return;
@@ -264,23 +267,10 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
     onSave({
       ...task,
       daysFromStart,
-      label,
       taskType,
       duration,
+      memo: memo || undefined,
     });
-  };
-
-  const getIcon = (type: TaskType) => {
-    switch (type) {
-      case "field":
-        return <Tractor className="w-4 h-4" />;
-      case "planting":
-        return <Sprout className="w-4 h-4" />;
-      case "care":
-        return <Droplets className="w-4 h-4" />;
-      case "harvest":
-        return <Wheat className="w-4 h-4" />;
-    }
   };
 
   return (
@@ -300,19 +290,6 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>作業名</Label>
-        <Input
-          value={label}
-          onChange={(e) => {
-            setLabel(e.target.value);
-            if (error) setError("");
-          }}
-          required
-          className={error ? "border-red-500" : ""}
-        />
-        {error && <p className="text-sm text-red-500">{error}</p>}
-      </div>
-      <div className="space-y-2">
         <Label>作業分類</Label>
         <Select
           value={taskType}
@@ -324,10 +301,7 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
           <SelectContent>
             {TASK_TYPES.map(({ type, label }) => (
               <SelectItem key={type} value={type}>
-                <div className="flex items-center gap-2">
-                  {getIcon(type)}
-                  <span>{label}</span>
-                </div>
+                <span>{label}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -345,6 +319,14 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         <p className="text-sm text-muted-foreground">
           作業にかかる日数を入力してください（1日以上）
         </p>
+      </div>
+      <div className="space-y-2">
+        <Label>メモ</Label>
+        <Textarea
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="作業に関するメモを入力してください"
+        />
       </div>
       <div className="flex justify-end space-x-2">
         <Button type="button" variant="outline" onClick={onCancel}>
