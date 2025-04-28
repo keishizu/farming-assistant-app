@@ -122,7 +122,7 @@ export default function HomeScreen() {
         <h1 className="text-2xl font-semibold text-green-800">
           {format(new Date(), "yyyy年 M月 d日 (EEEE)", { locale: ja })}
         </h1>
-        <p className="text-gray-600">本日の農作業を記録</p>
+        <p className="text-gray-600">農作業を記録してみよう！</p>
       </motion.div>
 
       <Card className="p-6 space-y-6">
