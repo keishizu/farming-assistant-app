@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteFarmRecord } from "@/services/farm-storage";
 import { EditRecordModal } from "./edit-record-modal";
 import { FarmRecord } from "@/types/farm";
+import { getCrops } from "@/services/crop-storage";
 
 export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -43,6 +44,12 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
 
   const getRecordsForDate = (date: Date) => {
     return records.filter((record) => isSameDay(record.date, date));
+  };
+
+  const getCropColor = (cropName: string) => {
+    const crops = getCrops();
+    const crop = crops.find(c => c.name === cropName);
+    return crop?.color || "bg-gray-100";
   };
 
   const handleDeleteRecord = (record: Record) => {
@@ -129,23 +136,25 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
             >
               <div className="calendar-date relative">{format(date, "d")}</div>
 
-              {/* 帯表示（作物名のみ） */}
-              {dateRecords.slice(0, MAX_RECORDS_PER_DAY).map((record, index) => (
-                <div
-                  key={record.id}
-                  className="record-bar absolute left-0 right-0 mx-1 px-1 truncate bg-blue-100 text-blue-800 text-xs rounded flex items-center justify-center cursor-pointer select-none"
-                  style={{
-                    top: `${0.3 + (RECORD_HEIGHT_REM * (index + 1))}rem`,
-                    height: "1.25rem",
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedRecord(record);
-                  }}
-                >
-                  {record.cropName}
-                </div>
-              ))}
+              {/* 帯表示 */}
+              {dateRecords.slice(0, MAX_RECORDS_PER_DAY).map((record, index) => {
+                const cropColor = getCropColor(record.cropName);
+                return (
+                  <div
+                    key={record.id}
+                    className={`calendar-bar record-bar ${cropColor}`}
+                    style={{
+                      top: `${2 + (index * 1.5)}rem`
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedRecord(record);
+                    }}
+                  >
+                    {record.taskName}
+                  </div>
+                );
+              })}
 
               {/* +N表示 */}
               {dateRecords.length > MAX_RECORDS_PER_DAY && (

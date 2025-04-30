@@ -1,7 +1,10 @@
+import { TaskType } from "@/types/crop";
+
 export interface Task {
   id: string;
   cropName: string;
   taskName: string;
+  taskType: TaskType;
   startDate: string; // ISO形式 "2025-04-26"
   endDate: string;   // ISO形式 "2025-04-28"
   memo?: string;

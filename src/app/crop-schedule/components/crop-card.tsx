@@ -20,7 +20,10 @@ export function CropCard({ crop, onUpdate, onDelete }: CropCardProps) {
     <>
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-semibold">{crop.name}</CardTitle>
+          <div className="flex items-center space-x-2">
+            <div className={`w-4 h-4 rounded-full ${crop.color}`} />
+            <CardTitle className="text-xl font-semibold">{crop.name}</CardTitle>
+          </div>
           <div className="flex space-x-2">
             <Button
               variant="ghost"

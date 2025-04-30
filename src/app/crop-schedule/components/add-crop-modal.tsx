@@ -15,6 +15,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// イメージカラーの選択肢
+const COLOR_OPTIONS = [
+  { value: "bg-red-100", label: "赤" },
+  { value: "bg-orange-100", label: "オレンジ" },
+  { value: "bg-yellow-100", label: "黄" },
+  { value: "bg-green-100", label: "緑" },
+  { value: "bg-teal-100", label: "ティール" },
+  { value: "bg-blue-100", label: "青" },
+  { value: "bg-indigo-100", label: "インディゴ" },
+  { value: "bg-purple-100", label: "紫" },
+  { value: "bg-pink-100", label: "ピンク" },
+];
 
 interface AddCropModalProps {
   isOpen: boolean;
@@ -26,6 +38,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");
+  const [color, setColor] = useState("");
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const [pendingTasks, setPendingTasks] = useState<CropTask[]>([]);
 
@@ -50,6 +63,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
       startDate: new Date(startDate),
       memo: memo || undefined,
       tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
+      color,
     };
 
     onAdd(newCrop);
@@ -60,6 +74,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     setName("");
     setStartDate("");
     setMemo("");
+    setColor("");
     setPendingTasks([]);
     setEditingTask(null);
   };
@@ -111,6 +126,24 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="color">イメージカラー</Label>
+            <Select value={color} onValueChange={setColor} required>
+              <SelectTrigger id="color">
+                <SelectValue placeholder="色を選択してください" />
+              </SelectTrigger>
+              <SelectContent>
+                {COLOR_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-4 h-4 rounded-full ${option.value}`} />
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="startDate">定植日</Label>

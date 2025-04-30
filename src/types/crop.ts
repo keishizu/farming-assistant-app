@@ -32,4 +32,5 @@ export interface CustomCrop {
   startDate: Date;
   memo?: string;
   tasks: CropTask[];
+  color: string;
 } 

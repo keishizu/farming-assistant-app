@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2 } from "lucide-react";
 import {
   format,
   addMonths,
@@ -23,16 +23,23 @@ import {
 import { ja } from "date-fns/locale";
 
 import { Task } from "@/types/calendar";
-import { dummyTasks } from "@/data/dummyData";
+import { TaskType } from "@/types/crop";
+import { EditTaskModal } from "./edit-task-modal";
+import { useToast } from "@/hooks/use-toast";
+import { getCrops, saveCrops } from "@/services/crop-storage";
+import { CustomCrop, CropTask } from "@/types/crop";
 
 interface ScheduleCalendarProps {
   tasks: Task[];
+  onUpdate?: (tasks: Task[]) => void;
 }
 
-export function ScheduleCalendar({ tasks }: ScheduleCalendarProps) {
+export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const { toast } = useToast();
 
   const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
   const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
@@ -46,6 +53,54 @@ export function ScheduleCalendar({ tasks }: ScheduleCalendarProps) {
     return tasks.filter(
       (task) => target >= task.startDate && target <= task.endDate
     );
+  };
+
+  const getCropColor = (cropName: string) => {
+    const crops = getCrops();
+    const crop = crops.find(c => c.name === cropName);
+    return crop?.color || "bg-gray-100";
+  };
+
+  const handleUpdateTask = (updatedTask: Task) => {
+    if (onUpdate) {
+      onUpdate(tasks.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      ));
+    }
+  };
+
+  const handleDeleteTask = (task: Task) => {
+    if (window.confirm("この予定を削除してもよろしいですか？")) {
+      // 予定カレンダーから削除
+      if (onUpdate) {
+        onUpdate(tasks.filter(t => t.id !== task.id));
+      }
+      
+      // 作物スケジュールからも削除
+      const crops = getCrops();
+      const updatedCrops = crops.map((crop: CustomCrop) => {
+        // 該当する作物を特定
+        if (crop.name === task.cropName) {
+          // 該当する工程を削除
+          const updatedTasks = crop.tasks.filter((t: CropTask) => t.id !== task.id);
+          return { ...crop, tasks: updatedTasks };
+        }
+        return crop;
+      });
+      
+      // 更新された作物スケジュールを保存
+      saveCrops(updatedCrops);
+      
+      // 削除完了のトーストを表示
+      const { dismiss } = toast({
+        title: "削除しました",
+        description: "予定を削除しました",
+        duration: 5000,
+        onClick: () => dismiss(),
+      });
+      
+      setSelectedTask(null);
+    }
   };
 
   return (
@@ -103,26 +158,25 @@ export function ScheduleCalendar({ tasks }: ScheduleCalendarProps) {
                 return (
                   <>
                     {/* 最大1本まで帯表示 */}
-                    {todayTasks.slice(0, MAX_TASKS_PER_DAY).map((task, index) => (
-                      <div
-                        key={task.id}
-                        className="task-bar absolute left-0 right-0 mx-1 px-1 truncate bg-green-100 text-green-800 text-xs rounded flex items-center justify-center cursor-pointer select-none"
-                        style={{
-                          top: `${0.2 + (TASK_HEIGHT_REM * (index + 1))}rem`,
-                          height: "1.25rem",
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedTask(task);
-                        }}
-                      >
-                        {isSameDay(date, new Date(task.startDate))
-                          ? task.cropName
-                          : date > new Date(task.startDate) && date <= new Date(task.endDate)
-                            ? task.taskName
-                            : ""}
-                      </div>
-                    ))}
+                    {todayTasks.slice(0, MAX_TASKS_PER_DAY).map((task, index) => {
+                      const cropColor = getCropColor(task.cropName);
+                      return (
+                        <div
+                          key={task.id}
+                          className={`task-bar absolute left-0 right-0 mx-1 px-1 truncate ${cropColor} text-xs rounded flex items-center justify-center cursor-pointer select-none`}
+                          style={{
+                            top: `${0.2 + (TASK_HEIGHT_REM * (index + 1))}rem`,
+                            height: "1.25rem",
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTask(task);
+                          }}
+                        >
+                          {task.taskName}
+                        </div>
+                      );
+                    })}
 
                     {/* +N表示 */}
                     {todayTasks.length > MAX_TASKS_PER_DAY && (
@@ -156,7 +210,7 @@ export function ScheduleCalendar({ tasks }: ScheduleCalendarProps) {
               {getTasksForDate(selectedDate).map((task) => (
                 <div
                   key={task.id}
-                  className="p-2 rounded-lg border hover:bg-green-50 cursor-pointer"
+                  className="p-2 rounded-lg border hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
                     setSelectedTask(task);
                     setSelectedDate(null);
@@ -201,10 +255,41 @@ export function ScheduleCalendar({ tasks }: ScheduleCalendarProps) {
                     <div className="whitespace-pre-wrap">{selectedTask.memo}</div>
                   </div>
                 )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingTask(selectedTask);
+                      setSelectedTask(null);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    編集
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteTask(selectedTask)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    削除
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* 編集モーダル */}
+      {editingTask && (
+        <EditTaskModal
+          isOpen={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          task={editingTask}
+          onUpdate={handleUpdateTask}
+        />
       )}
     </div>
   );

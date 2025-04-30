@@ -12,7 +12,7 @@ export default function Navigation() {
     { href: "/", icon: Home, label: "ホーム" },
     { href: "/calendar", icon: Calendar, label: "カレンダー" },
     { href: "/todo", icon: CheckSquare, label: "タスク" },
-    { href: "/crop-schedule", icon: Sprout, label: "作物スケジュール" },
+    { href: "/crop-schedule", icon: Sprout, label: "スケジュール" },
     { href: "/comments", icon: MessageSquare, label: "掲示板" },
   ];
 
