@@ -1,4 +1,4 @@
-import { CustomCrop } from "@/types/crop";
+import { CustomCrop, CROP_COLOR_OPTIONS } from "@/types/crop"; // ← CROP_COLOR_OPTIONS を使う前提
 
 const CROPS_STORAGE_KEY = "farming-assistant-crops";
 
@@ -9,16 +9,29 @@ export function saveCrops(crops: CustomCrop[]) {
 export function getCrops(): CustomCrop[] {
   const cropsJson = localStorage.getItem(CROPS_STORAGE_KEY);
   if (!cropsJson) return [];
-  
+
   const crops = JSON.parse(cropsJson);
-  // 日付をDate型に変換
-  return crops.map((crop: any) => ({
-    ...crop,
-    startDate: new Date(crop.startDate),
-  }));
+  return crops.map((crop: any) => {
+    const startDate = new Date(crop.startDate);
+
+    // ✅ colorが文字列だったら、新形式に変換する
+    let color = crop.color;
+    if (typeof color === "string") {
+      const matched = CROP_COLOR_OPTIONS.find(opt => opt.bg === color);
+      color = matched
+        ? { text: matched.text, bg: matched.bg }
+        : { text: "text-black", bg: color }; // bgだけ残す
+    }
+
+    return {
+      ...crop,
+      startDate,
+      color,
+    };
+  });
 }
 
 export function getCropNames(): string[] {
   const crops = getCrops();
   return crops.map(crop => crop.name);
-} 
+}

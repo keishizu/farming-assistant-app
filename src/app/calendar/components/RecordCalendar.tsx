@@ -49,7 +49,7 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const getCropColor = (cropName: string) => {
     const crops = getCrops();
     const crop = crops.find(c => c.name === cropName);
-    return crop?.color || "bg-gray-100";
+    return crop?.color.bg || "bg-gray-100";
   };
 
   const handleDeleteRecord = (record: Record) => {

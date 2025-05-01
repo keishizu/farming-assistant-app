@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomCrop, CropTask, TaskType, TASK_TYPES } from "@/types/crop";
+import { CustomCrop, CropTask, TaskType, TASK_TYPES, CropColorOption } from "@/types/crop";
 import { useState } from "react";
 import { format, addDays } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
@@ -14,19 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// イメージカラーの選択肢
-const COLOR_OPTIONS = [
-  { value: "bg-red-100", label: "赤" },
-  { value: "bg-orange-100", label: "オレンジ" },
-  { value: "bg-yellow-100", label: "黄" },
-  { value: "bg-green-100", label: "緑" },
-  { value: "bg-teal-100", label: "ティール" },
-  { value: "bg-blue-100", label: "青" },
-  { value: "bg-indigo-100", label: "インディゴ" },
-  { value: "bg-purple-100", label: "紫" },
-  { value: "bg-pink-100", label: "ピンク" },
-];
+import { CROP_COLOR_OPTIONS } from "@/types/crop";
 
 interface EditCropModalProps {
   isOpen: boolean;
@@ -39,7 +27,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
   const [name, setName] = useState(crop.name);
   const [startDate, setStartDate] = useState(format(crop.startDate, "yyyy-MM-dd"));
   const [memo, setMemo] = useState(crop.memo || "");
-  const [color, setColor] = useState(crop.color);
+  const [color, setColor] = useState<CropColorOption>(crop.color);
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const [pendingTasks, setPendingTasks] = useState<CropTask[]>(crop.tasks);
 
@@ -129,15 +117,24 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">イメージカラー</Label>
-            <Select value={color} onValueChange={setColor} required>
+            <Select 
+              value={color.bg} 
+              onValueChange={(value: string) => {
+                const selectedColor = CROP_COLOR_OPTIONS.find(opt => opt.bg === value);
+                if (selectedColor) {
+                  setColor(selectedColor);
+                }
+              }} 
+              required
+            >
               <SelectTrigger id="color">
                 <SelectValue placeholder="色を選択してください" />
               </SelectTrigger>
               <SelectContent>
-                {COLOR_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                {CROP_COLOR_OPTIONS.map((option) => (
+                  <SelectItem key={option.bg} value={option.bg}>
                     <div className="flex items-center space-x-2">
-                      <div className={`w-4 h-4 rounded-full ${option.value}`} />
+                      <div className={`w-4 h-4 rounded-full ${option.bg}`} />
                       <span>{option.label}</span>
                     </div>
                   </SelectItem>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomCrop, CropTask, TaskType, TASK_TYPES } from "@/types/crop";
+import { CustomCrop, CropTask, TaskType, TASK_TYPES, CropColorOption } from "@/types/crop";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { format, addDays } from "date-fns";
@@ -14,19 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// イメージカラーの選択肢
-const COLOR_OPTIONS = [
-  { value: "bg-red-100", label: "赤" },
-  { value: "bg-orange-100", label: "オレンジ" },
-  { value: "bg-yellow-100", label: "黄" },
-  { value: "bg-green-100", label: "緑" },
-  { value: "bg-teal-100", label: "ティール" },
-  { value: "bg-blue-100", label: "青" },
-  { value: "bg-indigo-100", label: "インディゴ" },
-  { value: "bg-purple-100", label: "紫" },
-  { value: "bg-pink-100", label: "ピンク" },
-];
+import { useToast } from "@/hooks/use-toast";
+import { saveCrops, getCrops } from "@/services/crop-storage";
+import { CROP_COLOR_OPTIONS } from "@/types/crop";
 
 interface AddCropModalProps {
   isOpen: boolean;
@@ -38,9 +28,10 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");
-  const [color, setColor] = useState("");
+  const [color, setColor] = useState<CropColorOption>(CROP_COLOR_OPTIONS[0]);
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const [pendingTasks, setPendingTasks] = useState<CropTask[]>([]);
+  const { toast } = useToast();
 
   const formatTaskDateRange = (task: CropTask) => {
     if (!startDate) return "";
@@ -56,27 +47,66 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!name.trim()) {
+      toast({
+        title: "エラー",
+        description: "作物名を入力してください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!startDate) {
+      toast({
+        title: "エラー",
+        description: "開始日を選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 作物名の重複チェック
+    const existingCrops = getCrops();
+    if (existingCrops.some(crop => crop.name === name.trim())) {
+      toast({
+        title: "エラー",
+        description: "この作物名は既に登録されています",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newCrop: CustomCrop = {
       id: uuidv4(),
-      name,
+      name: name.trim(),
       startDate: new Date(startDate),
-      memo: memo || undefined,
+      memo: memo.trim(),
       tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
-      color,
+      color: {
+        text: color.text,
+        bg: color.bg
+      },
     };
 
+    // 作物を保存
+    saveCrops([...existingCrops, newCrop]);
     onAdd(newCrop);
-    resetForm();
-  };
+    onClose();
 
-  const resetForm = () => {
+    // フォームをリセット
     setName("");
     setStartDate("");
     setMemo("");
-    setColor("");
+    setColor(CROP_COLOR_OPTIONS[0]);
     setPendingTasks([]);
     setEditingTask(null);
+
+    // 成功メッセージを表示
+    toast({
+      title: "追加しました",
+      description: "新しい作物を追加しました",
+    });
   };
 
   const handleAddTask = () => {
@@ -105,17 +135,11 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     setPendingTasks(pendingTasks.filter(task => task.id !== taskId));
   };
 
-  // モーダルが閉じられた時にフォームをリセット
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>作物を追加</DialogTitle>
+          <DialogTitle>新しい作物を追加</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -124,21 +148,26 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
+              placeholder="例：トマト"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">イメージカラー</Label>
-            <Select value={color} onValueChange={setColor} required>
-              <SelectTrigger id="color">
-                <SelectValue placeholder="色を選択してください" />
+            <Select value={color.bg} onValueChange={(value) => {
+              const selectedColor = CROP_COLOR_OPTIONS.find(opt => opt.bg === value);
+              if (selectedColor) {
+                setColor(selectedColor);
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="カラーを選択" />
               </SelectTrigger>
               <SelectContent>
-                {COLOR_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-4 h-4 rounded-full ${option.value}`} />
-                      <span>{option.label}</span>
+                {CROP_COLOR_OPTIONS.map((option) => (
+                  <SelectItem key={option.bg} value={option.bg}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full ${option.bg}`} />
+                      {option.label}
                     </div>
                   </SelectItem>
                 ))}
@@ -146,13 +175,12 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="startDate">定植日</Label>
+            <Label htmlFor="startDate">開始日</Label>
             <Input
               id="startDate"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              required
             />
           </div>
           <div className="space-y-2">
@@ -161,6 +189,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
               id="memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
+              placeholder="メモがあれば入力してください"
             />
           </div>
 
@@ -232,7 +261,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
 
           {!editingTask && (
             <div className="flex justify-end">
-              <Button type="submit">保存</Button>
+              <Button type="submit">追加</Button>
             </div>
           )}
         </form>
