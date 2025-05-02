@@ -13,56 +13,81 @@ import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { saveFarmRecord } from "@/services/farm-storage";
 import { NewFarmRecord } from "@/types/farm";
-import { TASK_TYPES } from "@/types/crop";
-import { getCropNames } from "@/services/crop-storage";
+import { getCropNames, getCrops } from "@/services/crop-storage";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
-
-const tasks = TASK_TYPES.map((task) => task.label);
 
 export default function HomeScreen() {
   const [crop, setCrop] = useState("");
   const [task, setTask] = useState("");
   const [memo, setMemo] = useState("");
+  const [date, setDate] = useState<Date>(new Date());
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [availableCrops, setAvailableCrops] = useState<string[]>([]);
-  const [workDate, setWorkDate] = useState(new Date());
+  const [cropNames, setCropNames] = useState<string[]>([]);
+  const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>([]);
   const { toast } = useToast();
   const router = useRouter();
 
+  // 作物名の選択肢を取得
   useEffect(() => {
-    // 保存された作物名を取得
-    const crops = getCropNames();
-    setAvailableCrops(crops);
-    
-    if (crops.length === 0) {
-      const { dismiss } = toast({
-        title: "エラー",
-        description: "作物スケジュールに作物が登録されていません。先に作物スケジュール画面で作物を登録してください。",
-        variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
-      });
+    setCropNames(getCropNames());
+  }, []);
+
+  // 選択された作物に紐づく作業分類を取得
+  useEffect(() => {
+    if (crop) {
+      const crops = getCrops();
+      const selectedCrop = crops.find(c => c.name === crop);
+      if (selectedCrop) {
+        const taskTypes = selectedCrop.tasks.map(task => task.taskType);
+        const uniqueTaskTypes = Array.from(new Set(taskTypes));
+        setAvailableTaskTypes(uniqueTaskTypes);
+        
+        // 現在の作業分類が選択された作物の作業分類に含まれていない場合、リセット
+        if (!uniqueTaskTypes.includes(task)) {
+          setTask("");
+        }
+      } else {
+        setAvailableTaskTypes([]);
+        setTask("");
+      }
+    } else {
+      setAvailableTaskTypes([]);
+      setTask("");
     }
-  }, [toast]);
+  }, [crop, task]);
+
+  const handleCropChange = (value: string) => {
+    setCrop(value);
+    setTask(""); // 作物が変更されたら作業分類をリセット
+  };
+
+  const handleTaskChange = (value: string) => {
+    if (!crop) {
+      toast({
+        title: "エラー",
+        description: "先に作物を選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+    setTask(value);
+  };
 
   const handleSave = () => {
     if (!crop || !task) {
-      const { dismiss } = toast({
+      toast({
         title: "エラー",
         description: "作物と作業を選択してください",
         variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
       });
       return;
     }
 
     const record: NewFarmRecord = {
       userId: "demo-user",
-      date: format(workDate, "yyyy-MM-dd"),
+      date: format(date, "yyyy-MM-dd"),
       crop: crop,
       task: task,
       memo: memo || undefined,
@@ -71,12 +96,9 @@ export default function HomeScreen() {
 
     saveFarmRecord(record);
 
-    // 保存完了のトーストを表示
-    const { dismiss } = toast({
+    toast({
       title: "保存しました",
       description: `${crop}の${task}を記録しました`,
-      duration: 5000,
-      onClick: () => dismiss(),
     });
 
     // フォームをリセット
@@ -84,7 +106,7 @@ export default function HomeScreen() {
     setTask("");
     setMemo("");
     setPhotoUrl("");
-    setWorkDate(new Date());
+    setDate(new Date());
 
     // カレンダー画面を更新
     router.refresh();
@@ -130,19 +152,19 @@ export default function HomeScreen() {
           <div className="space-y-2">
             <Label htmlFor="workDate">作業日</Label>
             <DatePicker
-              date={workDate}
-              onSelect={setWorkDate}
+              date={date}
+              onSelect={setDate}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="crop">作物選択</Label>
-            <Select value={crop} onValueChange={setCrop}>
+            <Select value={crop} onValueChange={handleCropChange}>
               <SelectTrigger id="crop" className="w-full">
                 <SelectValue placeholder="作物を選んでください" />
               </SelectTrigger>
               <SelectContent>
-                {availableCrops.map((cropName) => (
+                {cropNames.map((cropName) => (
                   <SelectItem key={cropName} value={cropName}>
                     {cropName}
                   </SelectItem>
@@ -153,14 +175,18 @@ export default function HomeScreen() {
 
           <div className="space-y-2">
             <Label htmlFor="task">作業分類</Label>
-            <Select value={task} onValueChange={setTask}>
+            <Select 
+              value={task} 
+              onValueChange={handleTaskChange}
+              disabled={!crop}
+            >
               <SelectTrigger id="task" className="w-full">
-                <SelectValue placeholder="作業を選んでください" />
+                <SelectValue placeholder={crop ? "作業分類を選んでください" : "先に作物を選択してください"} />
               </SelectTrigger>
               <SelectContent>
-                {tasks.map((task) => (
-                  <SelectItem key={task} value={task}>
-                    {task}
+                {availableTaskTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
                   </SelectItem>
                 ))}
               </SelectContent>

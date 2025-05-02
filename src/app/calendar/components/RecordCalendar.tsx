@@ -39,8 +39,8 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start, end });
 
-  const MAX_RECORDS_PER_DAY = 3;
-  const RECORD_HEIGHT_REM = 1.5;
+  const MAX_RECORDS_PER_DAY = 1; // 最大1本まで帯を表示
+  const RECORD_HEIGHT_REM = 1.5; // 帯1本分の高さ
 
   const getRecordsForDate = (date: Date) => {
     return records.filter((record) => isSameDay(record.date, date));
@@ -144,7 +144,8 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
                     key={record.id}
                     className={`calendar-bar record-bar ${cropColor}`}
                     style={{
-                      top: `${2 + (index * 1.5)}rem`
+                      top: `${0.2 + (RECORD_HEIGHT_REM * (index + 1))}rem`,
+                      height: "1.25rem",
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -161,7 +162,11 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
                 <div
                   className="absolute left-0 right-0 mx-1 text-center text-xs text-gray-500 cursor-pointer select-none"
                   style={{
-                    top: `${0.3 + (RECORD_HEIGHT_REM * (MAX_RECORDS_PER_DAY + 1))}rem`,
+                    top: `${2 + (RECORD_HEIGHT_REM * (MAX_RECORDS_PER_DAY + 1))}rem`,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDate(date);
                   }}
                 >
                   +{dateRecords.length - MAX_RECORDS_PER_DAY}

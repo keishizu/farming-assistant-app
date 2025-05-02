@@ -1,21 +1,4 @@
-export type TaskType = "field" | "planting" | "care" | "harvest" | "mulch" | "fertilizer" | "weed" | "pest" | "other";
-
-export interface TaskTypeConfig {
-  type: TaskType;
-  label: string;
-}
-
-export const TASK_TYPES: TaskTypeConfig[] = [
-  { type: "field", label: "耕耘" },
-  { type: "planting", label: "定植" },
-  { type: "care",  label: "水やり" },
-  { type: "harvest",  label: "収穫" },
-  { type: "mulch", label: "マルチ張り" },
-  { type: "fertilizer", label: "追肥" },
-  { type: "weed", label: "除草" },
-  { type: "pest", label: "害虫獣対策" },
-  { type: "other", label: "その他" },
-];
+export type TaskType = string;
 
 export interface CropTask {
   id: string;
@@ -41,7 +24,6 @@ export interface CropColorOption {
   bg: string;   // 背景色クラス
   label: string; // 表示用ラベル
 }
-
 
 export const CROP_COLOR_OPTIONS: CropColorOption[] = [
   { text: "text-red-600", bg: "bg-red-100", label: "赤" },

@@ -1,4 +1,4 @@
-import { CustomCrop, CROP_COLOR_OPTIONS } from "@/types/crop"; // ← CROP_COLOR_OPTIONS を使う前提
+import { CustomCrop, CROP_COLOR_OPTIONS } from "@/types/crop";
 
 const CROPS_STORAGE_KEY = "farming-assistant-crops";
 
@@ -34,4 +34,10 @@ export function getCrops(): CustomCrop[] {
 export function getCropNames(): string[] {
   const crops = getCrops();
   return crops.map(crop => crop.name);
+}
+
+export function getUsedTaskTypes(): string[] {
+  const crops = getCrops();
+  const types = crops.flatMap(crop => crop.tasks.map(task => task.taskType));
+  return Array.from(new Set(types));
 }

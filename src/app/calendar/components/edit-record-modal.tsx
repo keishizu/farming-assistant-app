@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,9 +10,10 @@ import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { updateFarmRecord } from "@/services/farm-storage";
 import { FarmRecord } from "@/types/farm";
-import { TASK_TYPES } from "@/types/crop";
-import { getCropNames } from "@/services/crop-storage";
+import { getCropNames, getCrops } from "@/services/crop-storage";
 import Image from "next/image";
+import { Input } from "@/components/ui/input";
+import { CustomCrop } from "@/types/crop";
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -21,52 +22,89 @@ interface EditRecordModalProps {
   onUpdate: (record: FarmRecord) => void;
 }
 
-const tasks = TASK_TYPES.map((task) => task.label);
-
 export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecordModalProps) {
   const [crop, setCrop] = useState(record.crop);
   const [task, setTask] = useState(record.task);
   const [memo, setMemo] = useState(record.memo || "");
   const [photoUrl, setPhotoUrl] = useState<string | null>(record.photoUrl || null);
-  const [availableCrops, setAvailableCrops] = useState<string[]>([]);
+  const [cropNames, setCropNames] = useState<string[]>([]);
+  const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>([]);
   const { toast } = useToast();
 
-  // 作物名の一覧を取得
-  useState(() => {
-    const crops = getCropNames();
-    setAvailableCrops(crops);
-  });
+  // 作物名の選択肢を取得
+  useEffect(() => {
+    if (isOpen) {
+      setCropNames(getCropNames());
+    }
+  }, [isOpen]);
+
+  // 選択された作物に紐づく作業分類を取得
+  useEffect(() => {
+    if (isOpen && crop) {
+      const crops = getCrops();
+      const selectedCrop = crops.find(c => c.name === crop);
+      if (selectedCrop) {
+        const taskTypes = selectedCrop.tasks.map(task => task.taskType);
+        const uniqueTaskTypes = Array.from(new Set(taskTypes));
+        setAvailableTaskTypes(uniqueTaskTypes);
+        
+        // 現在の作業分類が選択された作物の作業分類に含まれていない場合、リセット
+        if (!uniqueTaskTypes.includes(task)) {
+          setTask("");
+        }
+      } else {
+        setAvailableTaskTypes([]);
+        setTask("");
+      }
+    } else {
+      setAvailableTaskTypes([]);
+      setTask("");
+    }
+  }, [isOpen, crop, task]);
+
+  const handleCropChange = (value: string) => {
+    setCrop(value);
+    setTask(""); // 作物が変更されたら作業分類をリセット
+  };
+
+  const handleTaskChange = (value: string) => {
+    if (!crop) {
+      toast({
+        title: "エラー",
+        description: "先に作物を選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+    setTask(value);
+  };
 
   const handleSave = () => {
     if (!crop || !task) {
-      const { dismiss } = toast({
+      toast({
         title: "エラー",
         description: "作物と作業を選択してください",
         variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
       });
       return;
     }
 
-    const updatedRecord = updateFarmRecord(record.id, {
+    const updatedRecord = {
+      ...record,
       crop,
       task,
       memo: memo || undefined,
       photoUrl: photoUrl || undefined,
+    };
+
+    updateFarmRecord(record.id, updatedRecord);
+    onUpdate(updatedRecord);
+    onClose();
+
+    toast({
+      title: "更新しました",
+      description: "記録を更新しました",
     });
-
-    if (updatedRecord) {
-      onUpdate(updatedRecord);
-      onClose();
-
-      const { dismiss } = toast({
-        title: "更新しました",
-        description: `${crop}の${task}を更新しました`,
-        duration: 5000,
-        onClick: () => dismiss(),
-      });
-    }
   };
 
   const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,17 +133,17 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>作業実績を編集</DialogTitle>
+          <DialogTitle>記録を編集</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="crop">作物選択</Label>
-            <Select value={crop} onValueChange={setCrop}>
+            <Select value={crop} onValueChange={handleCropChange}>
               <SelectTrigger id="crop" className="w-full">
                 <SelectValue placeholder="作物を選んでください" />
               </SelectTrigger>
               <SelectContent>
-                {availableCrops.map((cropName) => (
+                {cropNames.map((cropName) => (
                   <SelectItem key={cropName} value={cropName}>
                     {cropName}
                   </SelectItem>
@@ -116,14 +154,18 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
 
           <div className="space-y-2">
             <Label htmlFor="task">作業分類</Label>
-            <Select value={task} onValueChange={setTask}>
+            <Select 
+              value={task} 
+              onValueChange={handleTaskChange}
+              disabled={!crop}
+            >
               <SelectTrigger id="task" className="w-full">
-                <SelectValue placeholder="作業を選んでください" />
+                <SelectValue placeholder={crop ? "作業分類を選んでください" : "先に作物を選択してください"} />
               </SelectTrigger>
               <SelectContent>
-                {tasks.map((task) => (
-                  <SelectItem key={task} value={task}>
-                    {task}
+                {availableTaskTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
                   </SelectItem>
                 ))}
               </SelectContent>

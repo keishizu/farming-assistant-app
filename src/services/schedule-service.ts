@@ -1,7 +1,6 @@
 import { CustomCrop } from "@/types/crop";
 import { Task } from "@/types/calendar";
 import { addDays, format } from "date-fns";
-import { TASK_TYPES } from "@/types/crop";
 
 // 作物スケジュールからカレンダー用のタスクを生成
 export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
@@ -12,14 +11,10 @@ export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
       const startDate = addDays(crop.startDate, task.daysFromStart);
       const endDate = addDays(startDate, task.duration - 1);
 
-      // 作業タイプから作業名を取得
-      const taskType = TASK_TYPES.find(t => t.type === task.taskType);
-      const taskName = taskType ? taskType.label : task.label;
-
       tasks.push({
         id: task.id,
         cropName: crop.name,
-        taskName: taskName,
+        taskName: task.taskType,
         taskType: task.taskType,
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),

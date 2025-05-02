@@ -163,7 +163,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
                       return (
                         <div
                           key={task.id}
-                          className={`task-bar absolute left-0 right-0 mx-1 px-1 truncate ${cropColor} text-xs rounded flex items-center justify-center cursor-pointer select-none`}
+                          className={`calendar-bar record-bar ${cropColor}`}
                           style={{
                             top: `${0.2 + (TASK_HEIGHT_REM * (index + 1))}rem`,
                             height: "1.25rem",
@@ -183,7 +183,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
                       <div
                         className="absolute left-0 right-0 mx-1 text-center text-xs text-gray-500 cursor-pointer select-none"
                         style={{
-                          top: `${0.2 + (TASK_HEIGHT_REM * (MAX_TASKS_PER_DAY + 1))}rem`,
+                          top: `${2 + (TASK_HEIGHT_REM * (MAX_TASKS_PER_DAY + 1))}rem`,
                         }}
                       >
                         +{todayTasks.length - MAX_TASKS_PER_DAY}

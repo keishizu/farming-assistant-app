@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomCrop, CropTask, TaskType, TASK_TYPES, CropColorOption } from "@/types/crop";
+import { CustomCrop, CropTask, TaskType, CropColorOption } from "@/types/crop";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { format, addDays } from "date-fns";
@@ -85,7 +85,8 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
       tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
       color: {
         text: color.text,
-        bg: color.bg
+        bg: color.bg,
+        label: color.label,
       },
     };
 
@@ -108,13 +109,14 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
       description: "新しい作物を追加しました",
     });
   };
-
+  
+  // 作業工程のデフォルト入力項目
   const handleAddTask = () => {
     const newTask: CropTask = {
       id: uuidv4(),
       daysFromStart: 0,
       label: "",
-      taskType: "field",
+      taskType: "",
       duration: 1,
     };
     setEditingTask(newTask);
@@ -223,7 +225,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
                   >
                     <div>
                       <p className="font-medium">
-                        {TASK_TYPES.find(t => t.type === task.taskType)?.label}
+                        {task.taskType}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {formatTaskDateRange(task)}
@@ -353,21 +355,12 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
       </div>
       <div className="space-y-2">
         <Label>作業分類</Label>
-        <Select
+        <Input
+          type="text"
           value={taskType}
-          onValueChange={(value: TaskType) => setTaskType(value)}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TASK_TYPES.map(({ type, label }) => (
-              <SelectItem key={type} value={type}>
-                <span>{label}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(e) => setTaskType(e.target.value)}
+          placeholder="作業分類を入力してください 例：定植"
+        />
       </div>
       <div className="space-y-2">
         <Label>作業日数</Label>

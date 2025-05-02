@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Task } from "@/types/calendar";
-import { TASK_TYPES, TaskType } from "@/types/crop";
+import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { addDays, format } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
+import { Task } from "@/types/calendar";
+import { TaskType } from "@/types/crop";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -18,8 +18,6 @@ interface EditTaskModalProps {
   task: Task;
   onUpdate: (task: Task) => void;
 }
-
-const tasks = TASK_TYPES.map((task) => task.label);
 
 export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModalProps) {
   const [taskName, setTaskName] = useState(task.taskName);
@@ -70,34 +68,22 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="taskName">作業名</Label>
-            <Select value={taskName} onValueChange={setTaskName}>
-              <SelectTrigger id="taskName" className="w-full">
-                <SelectValue placeholder="作業を選んでください" />
-              </SelectTrigger>
-              <SelectContent>
-                {tasks.map((task) => (
-                  <SelectItem key={task} value={task}>
-                    {task}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="taskName"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              placeholder="作業名を入力してください"
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="taskType">作業タイプ</Label>
-            <Select value={taskType} onValueChange={(value: TaskType) => setTaskType(value)}>
-              <SelectTrigger id="taskType" className="w-full">
-                <SelectValue placeholder="作業タイプを選んでください" />
-              </SelectTrigger>
-              <SelectContent>
-                {TASK_TYPES.map((type) => (
-                  <SelectItem key={type.type} value={type.type}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="taskType"
+              value={taskType}
+              onChange={(e) => setTaskType(e.target.value as TaskType)}
+              placeholder="作業タイプを選択してください"
+            />
           </div>
 
           <div className="space-y-2">
