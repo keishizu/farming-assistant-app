@@ -62,8 +62,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
     const newTask: CropTask = {
       id: uuidv4(),
       daysFromStart: 0,
-      label: "",
-      taskType: "field",
+      taskType: "",
       duration: 1,
     };
     setEditingTask(newTask);

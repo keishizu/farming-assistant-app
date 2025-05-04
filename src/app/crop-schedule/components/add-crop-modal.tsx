@@ -115,7 +115,6 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     const newTask: CropTask = {
       id: uuidv4(),
       daysFromStart: 0,
-      label: "",
       taskType: "",
       duration: 1,
     };

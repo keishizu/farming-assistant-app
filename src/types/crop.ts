@@ -3,7 +3,6 @@ export type TaskType = string;
 export interface CropTask {
   id: string;
   daysFromStart: number;
-  label: string;
   taskType: TaskType;
   duration: number; // 作業日数（正の整数）
   memo?: string;
