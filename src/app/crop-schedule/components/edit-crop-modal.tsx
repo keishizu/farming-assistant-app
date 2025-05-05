@@ -142,7 +142,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="startDate">栽培開始日</Label>
+            <Label htmlFor="startDate">定植日</Label>
             <Input
               id="startDate"
               type="date"
@@ -162,7 +162,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">作業工程</h3>
+              <h3 className="text-lg font-semibold">栽培工程</h3>
               <Button 
                 type="button" 
                 onClick={handleAddTask}
@@ -319,12 +319,12 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>作業分類</Label>
+        <Label>作業名</Label>
         <Input
           type="text"
           value={taskType}
           onChange={(e) => setTaskType(e.target.value)}
-          placeholder="作業分類を入力してください"
+          placeholder="作業名を入力してください"
         />
       </div>
       <div className="space-y-2">

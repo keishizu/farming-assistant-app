@@ -44,7 +44,7 @@ export function CropCard({ crop, onUpdate, onDelete }: CropCardProps) {
         <CardContent>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              開始日: {format(crop.startDate, "yyyy年MM月dd日", { locale: ja })}
+              定植日: {format(crop.startDate, "yyyy年MM月dd日", { locale: ja })}
             </p>
             {crop.memo && (
               <p className="text-sm text-muted-foreground">{crop.memo}</p>

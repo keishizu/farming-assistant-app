@@ -38,7 +38,7 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
     }
   }, [isOpen]);
 
-  // 選択された作物に紐づく作業分類を取得
+  // 選択された作物に紐づく作業名を取得
   useEffect(() => {
     if (isOpen && crop) {
       const crops = getCrops();
@@ -48,7 +48,7 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
         const uniqueTaskTypes = Array.from(new Set(taskTypes));
         setAvailableTaskTypes(uniqueTaskTypes);
         
-        // 現在の作業分類が選択された作物の作業分類に含まれていない場合、リセット
+        // 現在の作業名が選択された作物の作業名に含まれていない場合、リセット
         if (!uniqueTaskTypes.includes(task)) {
           setTask("");
         }
@@ -64,7 +64,7 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
 
   const handleCropChange = (value: string) => {
     setCrop(value);
-    setTask(""); // 作物が変更されたら作業分類をリセット
+    setTask(""); // 作物が変更されたら作業名をリセット
   };
 
   const handleTaskChange = (value: string) => {
@@ -153,14 +153,14 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="task">作業分類</Label>
+            <Label htmlFor="task">作業名</Label>
             <Select 
               value={task} 
               onValueChange={handleTaskChange}
               disabled={!crop}
             >
               <SelectTrigger id="task" className="w-full">
-                <SelectValue placeholder={crop ? "作業分類を選んでください" : "先に作物を選択してください"} />
+                <SelectValue placeholder={crop ? "作業名を選んでください" : "先に作物を選択してください"} />
               </SelectTrigger>
               <SelectContent>
                 {availableTaskTypes.map((type) => (

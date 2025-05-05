@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Task } from "@/types/calendar";
-import { TaskType } from "@/types/crop";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -21,17 +20,27 @@ interface EditTaskModalProps {
 
 export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModalProps) {
   const [taskName, setTaskName] = useState(task.taskName);
-  const [taskType, setTaskType] = useState(task.taskType);
   const [startDate, setStartDate] = useState(new Date(task.startDate));
   const [endDate, setEndDate] = useState(new Date(task.endDate));
   const [memo, setMemo] = useState(task.memo || "");
   const { toast } = useToast();
 
   const handleSave = () => {
-    if (!taskName || !taskType) {
+    if (!taskName) {
       const { dismiss } = toast({
         title: "エラー",
-        description: "作業名と作業タイプを選択してください",
+        description: "作業名を選択してください",
+        variant: "destructive",
+        duration: 5000,
+        onClick: () => dismiss(),
+      });
+      return;
+    }
+
+    if (taskName.length > 5) {
+      const { dismiss } = toast({
+        title: "エラー",
+        description: "作業名は5文字以内で入力してください",
         variant: "destructive",
         duration: 5000,
         onClick: () => dismiss(),
@@ -42,9 +51,8 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
     const updatedTask: Task = {
       ...task,
       taskName,
-      taskType,
-      startDate: format(startDate, "yyyy-MM-dd"),
-      endDate: format(endDate, "yyyy-MM-dd"),
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
       memo: memo || undefined,
     };
 
@@ -72,17 +80,8 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
               id="taskName"
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
-              placeholder="作業名を入力してください"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="taskType">作業タイプ</Label>
-            <Input
-              id="taskType"
-              value={taskType}
-              onChange={(e) => setTaskType(e.target.value as TaskType)}
-              placeholder="作業タイプを選択してください"
+              placeholder="作業名を入力してください（5文字以内）"
+              maxLength={5}
             />
           </div>
 
