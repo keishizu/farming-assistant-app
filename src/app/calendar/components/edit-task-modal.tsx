@@ -9,7 +9,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Task } from "@/types/calendar";
 import { useToast } from "@/hooks/use-toast";
-
+import { getCrops, saveCrops } from "@/services/crop-storage";
+import { CustomCrop } from "@/types/crop";
+import { differenceInCalendarDays, startOfDay, format } from "date-fns";
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -20,8 +22,8 @@ interface EditTaskModalProps {
 
 export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModalProps) {
   const [taskName, setTaskName] = useState(task.taskName);
-  const [startDate, setStartDate] = useState(new Date(task.startDate));
-  const [endDate, setEndDate] = useState(new Date(task.endDate));
+  const [startDate, setStartDate] = useState(startOfDay(new Date(task.startDate)));
+  const [endDate, setEndDate] = useState(startOfDay(new Date(task.endDate)));
   const [memo, setMemo] = useState(task.memo || "");
   const { toast } = useToast();
 
@@ -48,13 +50,45 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
       return;
     }
 
+    // 日付を日本時間の日付文字列に変換
+    const formatDate = (date: Date) => {
+      return format(date, 'yyyy-MM-dd');
+    };
+
     const updatedTask: Task = {
       ...task,
       taskName,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate),
       memo: memo || undefined,
     };
+
+    // 作物スケジュールも更新
+    const crops = getCrops();
+    const updatedCrops = crops.map((crop: CustomCrop) => {
+      if (crop.name === task.cropName) {
+        const updatedTasks = crop.tasks.map((t) => {
+          if (t.id === task.id) {
+            // 定植日からの相対日数を計算（タイムゾーンを考慮）
+            const cropStartDate = startOfDay(new Date(crop.startDate));
+            const newDaysFromStart = differenceInCalendarDays(startDate, cropStartDate);
+            const newDuration = differenceInCalendarDays(endDate, startDate) + 1;
+
+            return {
+              ...t,
+              taskType: taskName,
+              memo: memo || undefined,
+              daysFromStart: newDaysFromStart,
+              duration: newDuration,
+            };
+          }
+          return t;
+        });
+        return { ...crop, tasks: updatedTasks };
+      }
+      return crop;
+    });
+    saveCrops(updatedCrops);
 
     onUpdate(updatedTask);
     onClose();
@@ -89,7 +123,7 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
             <Label htmlFor="startDate">開始日</Label>
             <DatePicker
               date={startDate}
-              onSelect={setStartDate}
+              onSelect={(date) => setStartDate(startOfDay(date))}
             />
           </div>
 
@@ -97,7 +131,7 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
             <Label htmlFor="endDate">終了日</Label>
             <DatePicker
               date={endDate}
-              onSelect={setEndDate}
+              onSelect={(date) => setEndDate(startOfDay(date))}
             />
           </div>
 
