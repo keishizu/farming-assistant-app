@@ -2,7 +2,7 @@ import { CustomCrop } from "@/types/crop";
 import { Task } from "@/types/calendar";
 import { addDays, format } from "date-fns";
 
-// 作物スケジュールからカレンダー用のタスクを生成
+// カスタムスケジュールからカレンダー用のタスクを生成
 export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
   const tasks: Task[] = [];
 
@@ -26,7 +26,7 @@ export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
   return tasks;
 };
 
-// 作物スケジュールから特定の日付のタスクを取得
+// カスタムスケジュールから特定の日付のタスクを取得
 export const getTasksForDate = (crops: CustomCrop[], date: Date): Task[] => {
   const allTasks = generateTasksFromCrops(crops);
   const targetDate = format(date, "yyyy-MM-dd");

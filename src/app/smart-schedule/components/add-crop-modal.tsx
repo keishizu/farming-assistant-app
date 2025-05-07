@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomCrop, CropTask, TaskType, CropColorOption } from "@/types/crop";
 import { useState } from "react";
-import { format, addDays } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
+import { format, addDays } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -16,24 +16,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
+import { AVAILABLE_CROPS, DefaultCrop } from "@/types/default-crops";
 
-interface EditCropModalProps {
+interface AddCropModalProps {
   isOpen: boolean;
   onClose: () => void;
-  crop: CustomCrop;
-  onUpdate: (crop: CustomCrop) => void;
+  onAdd: (crop: CustomCrop) => void;
 }
 
-export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModalProps) {
-  const [name, setName] = useState(crop.name);
-  const [startDate, setStartDate] = useState(format(crop.startDate, "yyyy-MM-dd"));
-  const [memo, setMemo] = useState(crop.memo || "");
-  const [color, setColor] = useState<CropColorOption>(crop.color);
+export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
+  const [selectedCrop, setSelectedCrop] = useState<DefaultCrop | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [memo, setMemo] = useState("");
+  const [color, setColor] = useState<CropColorOption | null>(null);
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
-  const [pendingTasks, setPendingTasks] = useState<CropTask[]>(crop.tasks);
+  const [pendingTasks, setPendingTasks] = useState<CropTask[]>([]);
+  const { toast } = useToast();
+
+  const handleCropSelect = (cropId: string) => {
+    const crop = AVAILABLE_CROPS.find(c => c.id === cropId);
+    if (crop) {
+      setSelectedCrop(crop);
+      setPendingTasks(crop.tasks);
+    }
+  };
 
   const formatTaskDateRange = (task: CropTask) => {
+    if (!startDate) return "";
     const start = addDays(new Date(startDate), task.daysFromStart);
     const end = addDays(new Date(startDate), task.daysFromStart + task.duration - 1);
 
@@ -46,18 +57,55 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const updatedCrop: CustomCrop = {
-      ...crop,
-      name,
+
+    if (!selectedCrop) {
+      toast({
+        title: "エラー",
+        description: "作物を選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!startDate) {
+      toast({
+        title: "エラー",
+        description: "定植日を選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!color) {
+      toast({
+        title: "エラー",
+        description: "イメージカラーを選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCrop: CustomCrop = {
+      id: uuidv4(),
+      name: selectedCrop.name,
       startDate: new Date(startDate),
-      memo: memo || undefined,
+      memo: memo.trim(),
       tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
-      color,
+      color: {
+        text: color.text,
+        bg: color.bg,
+        label: color.label,
+      },
     };
 
-    onUpdate(updatedCrop);
-    onClose();
+    onAdd(newCrop);
+    handleClose();
+
+    // 成功メッセージを表示
+    toast({
+      title: "追加しました",
+      description: `${selectedCrop.name}の栽培計画を追加しました`,
+    });
   };
 
   const handleAddTask = () => {
@@ -68,10 +116,6 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
       duration: 1,
     };
     setEditingTask(newTask);
-  };
-
-  const handleEditTask = (task: CropTask) => {
-    setEditingTask(task);
   };
 
   const handleSaveTask = (task: CropTask) => {
@@ -91,11 +135,11 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
 
   // モーダルが閉じられた時にフォームをリセット
   const handleClose = () => {
-    setName(crop.name);
-    setStartDate(format(crop.startDate, "yyyy-MM-dd"));
-    setMemo(crop.memo || "");
-    setColor(crop.color);
-    setPendingTasks(crop.tasks);
+    setSelectedCrop(null);
+    setStartDate("");
+    setMemo("");
+    setColor(null);
+    setPendingTasks([]);
     setEditingTask(null);
     onClose();
   };
@@ -104,29 +148,58 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>作物を編集</DialogTitle>
+          <DialogTitle>作物を追加</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">作物名</Label>
+            <Label htmlFor="crop">作物</Label>
+            <Select 
+              value={selectedCrop?.id || ""} 
+              onValueChange={handleCropSelect}
+            >
+              <SelectTrigger id="crop">
+                <SelectValue placeholder="作物を選択してください" />
+              </SelectTrigger>
+              <SelectContent>
+                {AVAILABLE_CROPS.map((crop) => (
+                  <SelectItem key={crop.id} value={crop.id}>
+                    {crop.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="startDate">定植日</Label>
             <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="memo">メモ</Label>
+            <Textarea
+              id="memo"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="栽培に関するメモを入力してください"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="color">イメージカラー</Label>
             <Select 
-              value={color.bg} 
+              value={color?.bg || ""} 
               onValueChange={(value: string) => {
                 const selectedColor = CROP_COLOR_OPTIONS.find(opt => opt.bg === value);
                 if (selectedColor) {
                   setColor(selectedColor);
                 }
               }} 
-              required
             >
               <SelectTrigger id="color">
                 <SelectValue placeholder="色を選択してください" />
@@ -143,94 +216,83 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="startDate">定植日</Label>
-            <Input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="memo">メモ</Label>
-            <Textarea
-              id="memo"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-            />
-          </div>
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">栽培工程</h3>
-              <Button 
-                type="button" 
-                onClick={handleAddTask}
-                disabled={!!editingTask}
-              >
-                工程を追加
-              </Button>
-            </div>
+          {selectedCrop && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">栽培工程</h3>
+                <Button 
+                  type="button" 
+                  onClick={handleAddTask}
+                  disabled={!!editingTask}
+                >
+                  工程を追加
+                </Button>
+              </div>
 
-            {editingTask && (
-              <TaskForm
-                task={editingTask}
-                onSave={handleSaveTask}
-                onCancel={() => setEditingTask(null)}
-              />
-            )}
-
-            <div className="space-y-2">
-              {pendingTasks
-                .sort((a, b) => a.daysFromStart - b.daysFromStart)
-                .map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between p-2 border rounded"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {task.taskType}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatTaskDateRange(task)}
-                      </p>
-                      {task.memo && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {task.memo}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditTask(task)}
-                        disabled={!!editingTask}
-                      >
-                        編集
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteTask(task.id)}
-                        disabled={!!editingTask}
-                      >
-                        削除
-                      </Button>
-                    </div>
+              <div className="space-y-4">
+                {editingTask && (
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <h4 className="font-medium mb-4">新しい工程を追加</h4>
+                    <TaskForm
+                      task={editingTask}
+                      onSave={handleSaveTask}
+                      onCancel={() => setEditingTask(null)}
+                    />
                   </div>
-                ))}
+                )}
+
+                <div className="space-y-2">
+                  {pendingTasks
+                    .sort((a, b) => a.daysFromStart - b.daysFromStart)
+                    .map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center justify-between p-2 border rounded"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {task.taskType}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatTaskDateRange(task)}
+                          </p>
+                          {task.memo && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {task.memo}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTask(task)}
+                            disabled={!!editingTask}
+                          >
+                            編集
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteTask(task.id)}
+                            disabled={!!editingTask}
+                          >
+                            削除
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {!editingTask && (
             <div className="flex justify-end">
-              <Button type="submit">保存</Button>
+              <Button type="submit">追加</Button>
             </div>
           )}
         </form>
@@ -326,7 +388,7 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
           type="text"
           value={taskType}
           onChange={(e) => setTaskType(e.target.value)}
-          placeholder="作業名を入力してください"
+          placeholder="作業名を入力してください 例：定植"
         />
       </div>
       <div className="space-y-2">

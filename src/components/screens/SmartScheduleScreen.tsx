@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CustomCrop } from "@/types/crop";
 import { useState, useEffect } from "react";
-import { AddCropModal } from "@/app/crop-schedule/components/add-crop-modal";
 import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { saveCrops, getCrops } from "@/services/crop-storage";
+import { saveSmartCrops, getSmartCrops } from "@/services/smart-crop-storage";
+import { AddCropModal } from "@/app/smart-schedule/components/add-crop-modal";
 
-export default function CropScheduleScreen() {
+export default function SmartScheduleScreen() {
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -18,14 +18,14 @@ export default function CropScheduleScreen() {
   // マウント時にデータを読み込む
   useEffect(() => {
     setIsMounted(true);
-    const savedCrops = getCrops();
+    const savedCrops = getSmartCrops();
     setCrops(savedCrops);
   }, []);
 
   // データが変更された時のみ保存
   useEffect(() => {
     if (isMounted) {
-      saveCrops(crops);
+      saveSmartCrops(crops);
     }
   }, [crops, isMounted]);
 
@@ -51,8 +51,8 @@ export default function CropScheduleScreen() {
         animate={{ opacity: 1, y: 0 }}
         className="text-center"
       >
-        <h1 className="text-2xl font-semibold text-green-800">カスタムスケジュール</h1>
-        <p className="text-gray-600">栽培計画を管理</p>
+        <h1 className="text-2xl font-semibold text-green-800">スマートスケジュール</h1>
+        <p className="text-gray-600">AI提案の栽培計画を管理</p>
       </motion.div>
 
       <Card className="p-4">

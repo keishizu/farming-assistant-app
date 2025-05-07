@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Calendar, CheckSquare, MessageSquare, Sprout } from "lucide-react";
+import { Home, Calendar, CheckSquare, MessageSquare, Sprout, Brain } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -12,7 +12,8 @@ export default function Navigation() {
     { href: "/", icon: Home, label: "ホーム" },
     { href: "/calendar", icon: Calendar, label: "カレンダー" },
     { href: "/todo", icon: CheckSquare, label: "タスク" },
-    { href: "/crop-schedule", icon: Sprout, label: "スケジュール" },
+    { href: "/crop-schedule", icon: Sprout, label: "カスタム" },
+    { href: "/smart-schedule", icon: Brain, label: "スマート" },
     { href: "/comments", icon: MessageSquare, label: "掲示板" },
   ];
 
