@@ -18,6 +18,7 @@ import {
   startOfWeek,
   endOfWeek,
   isSameDay,
+  addDays,
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import Image from "next/image";
@@ -27,6 +28,7 @@ import { deleteFarmRecord } from "@/services/farm-storage";
 import { EditRecordModal } from "./edit-record-modal";
 import { FarmRecord } from "@/types/farm";
 import { getCrops } from "@/services/crop-storage";
+import { getSmartCrops } from "@/services/smart-crop-storage";
 
 export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -47,8 +49,10 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   };
 
   const getCropColor = (cropName: string) => {
-    const crops = getCrops();
-    const crop = crops.find(c => c.name === cropName);
+    const customCrops = getCrops();
+    const smartCrops = getSmartCrops();
+    const allCrops = [...customCrops, ...smartCrops];
+    const crop = allCrops.find(c => c.name === cropName);
     return crop?.color.bg || "bg-gray-100";
   };
 

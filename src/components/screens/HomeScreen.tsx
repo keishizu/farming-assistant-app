@@ -13,7 +13,7 @@ import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { saveFarmRecord } from "@/services/farm-storage";
 import { NewFarmRecord } from "@/types/farm";
-import { getCropNames, getCrops } from "@/services/crop-storage";
+import { getCropNames, getTaskTypesForCrop } from "@/services/crop-storage";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -37,19 +37,11 @@ export default function HomeScreen() {
   // 選択された作物に紐づく作業名を取得
   useEffect(() => {
     if (crop) {
-      const crops = getCrops();
-      const selectedCrop = crops.find(c => c.name === crop);
-      if (selectedCrop) {
-        const taskTypes = selectedCrop.tasks.map(task => task.taskType);
-        const uniqueTaskTypes = Array.from(new Set(taskTypes));
-        setAvailableTaskTypes(uniqueTaskTypes);
-        
-        // 現在の作業名が選択された作物の作業名に含まれていない場合、リセット
-        if (!uniqueTaskTypes.includes(task)) {
-          setTask("");
-        }
-      } else {
-        setAvailableTaskTypes([]);
+      const taskTypes = getTaskTypesForCrop(crop);
+      setAvailableTaskTypes(taskTypes);
+      
+      // 現在の作業名が選択された作物の作業名に含まれていない場合、リセット
+      if (!taskTypes.includes(task)) {
         setTask("");
       }
     } else {

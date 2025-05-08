@@ -44,8 +44,7 @@ export default function CalendarScreen() {
   };
 
   const loadTasks = () => {
-    const crops = getCrops();
-    const generatedTasks = generateTasksFromCrops(crops);
+    const generatedTasks = generateTasksFromCrops();
     setTasks(generatedTasks);
   };
 

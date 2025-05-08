@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from 'react';
 import { Task } from '@/types/calendar';
 import { getCrops } from '@/services/crop-storage';
+import { getSmartCrops } from '@/services/smart-crop-storage';
 import { generateTasksFromCrops } from '@/services/schedule-service';
 
 const container = {
@@ -25,8 +26,10 @@ const item = {
 
 // 作物名からカラーを取得する関数
 const getCropColorClass = (cropName: string): string => {
-  const crops = getCrops();
-  const crop = crops.find(c => c.name === cropName);
+  const customCrops = getCrops();
+  const smartCrops = getSmartCrops();
+  const allCrops = [...customCrops, ...smartCrops];
+  const crop = allCrops.find(c => c.name === cropName);
   return crop?.color.text || "text-black"; // 何もなければ黒でフォールバック
 };
 
@@ -49,8 +52,7 @@ export default function TodoScreen() {
 
   useEffect(() => {
     const loadTasks = () => {
-      const crops = getCrops();
-      const allTasks = generateTasksFromCrops(crops);
+      const allTasks = generateTasksFromCrops();
       
       // 今日の日付のタスクのみをフィルタリング
       const today = new Date();

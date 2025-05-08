@@ -1,12 +1,17 @@
 import { CustomCrop } from "@/types/crop";
 import { Task } from "@/types/calendar";
 import { addDays, format } from "date-fns";
+import { getCrops } from "./crop-storage";
+import { getSmartCrops } from "./smart-crop-storage";
 
-// カスタムスケジュールからカレンダー用のタスクを生成
-export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
+// カスタムスケジュールとスマートスケジュールからカレンダー用のタスクを生成
+export const generateTasksFromCrops = (): Task[] => {
   const tasks: Task[] = [];
+  const customCrops = getCrops();
+  const smartCrops = getSmartCrops();
+  const allCrops = [...customCrops, ...smartCrops];
 
-  crops.forEach(crop => {
+  allCrops.forEach(crop => {
     crop.tasks.forEach(task => {
       const startDate = addDays(crop.startDate, task.daysFromStart);
       const endDate = addDays(startDate, task.duration - 1);
@@ -27,8 +32,8 @@ export const generateTasksFromCrops = (crops: CustomCrop[]): Task[] => {
 };
 
 // カスタムスケジュールから特定の日付のタスクを取得
-export const getTasksForDate = (crops: CustomCrop[], date: Date): Task[] => {
-  const allTasks = generateTasksFromCrops(crops);
+export const getTasksForDate = (date: Date): Task[] => {
+  const allTasks = generateTasksFromCrops();
   const targetDate = format(date, "yyyy-MM-dd");
 
   return allTasks.filter(task => 

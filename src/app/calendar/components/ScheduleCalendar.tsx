@@ -27,6 +27,7 @@ import { TaskType } from "@/types/crop";
 import { EditTaskModal } from "./edit-task-modal";
 import { useToast } from "@/hooks/use-toast";
 import { getCrops, saveCrops } from "@/services/crop-storage";
+import { getSmartCrops } from "@/services/smart-crop-storage";
 import { CustomCrop, CropTask } from "@/types/crop";
 
 interface ScheduleCalendarProps {
@@ -56,8 +57,10 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   };
 
   const getCropColor = (cropName: string) => {
-    const crops = getCrops();
-    const crop = crops.find(c => c.name === cropName);
+    const customCrops = getCrops();
+    const smartCrops = getSmartCrops();
+    const allCrops = [...customCrops, ...smartCrops];
+    const crop = allCrops.find(c => c.name === cropName);
     return crop?.color.bg || "bg-gray-100"; // 何もなければグレーでフォールバック
   };
 
