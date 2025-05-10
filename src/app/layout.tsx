@@ -3,6 +3,15 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import Navigation from '@/components/Navigation';
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/nextjs' // ✅ 追加
+import { jaJP } from '@clerk/localizations'
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,14 +26,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
-      <body className={`${inter.className} bg-[#F7F9F4]`}>
-        <main className="min-h-screen pb-16">
-          {children}
-        </main>
-        <Navigation />
-        <Toaster />
-      </body>
-    </html>
+    <ClerkProvider localization={jaJP}> 
+      <html lang="ja">
+        <body className={`${inter.className} bg-[#F7F9F4]`}>
+        <header className="flex justify-end items-center p-4 gap-4 h-16">
+            <SignedOut>
+              <SignInButton />
+              <SignUpButton />
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+          </header>
+          <main className="min-h-screen pb-16">
+            {children}
+          </main>
+          <Navigation />
+          <Toaster />
+        </body>
+      </html>
+    </ClerkProvider> 
   );
 }

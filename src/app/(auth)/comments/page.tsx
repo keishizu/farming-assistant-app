@@ -1,9 +1,3 @@
-// import CommentScreen from '@/components/screens/CommentScreen';
-
-// export default function Comments() {
-//   return <CommentScreen />;
-// }
-
 export default function Comments() {
   return (
     <div className="max-w-md mx-auto p-4 space-y-6">
@@ -13,4 +7,4 @@ export default function Comments() {
       </div>
     </div>
   );
-}
+} 

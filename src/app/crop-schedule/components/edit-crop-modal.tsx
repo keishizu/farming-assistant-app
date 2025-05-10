@@ -307,8 +307,9 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
   return (
     <div className="p-4 border rounded space-y-4">
       <div className="space-y-2">
-        <Label>相対日数（定植日からの日数）</Label>
+        <Label htmlFor="daysFromStart">相対日数（定植日からの日数）</Label>
         <Input
+          id="daysFromStart"
           type="text"
           value={daysInput}
           onChange={handleDaysChange}
@@ -321,8 +322,9 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>作業名</Label>
+        <Label htmlFor="taskType">作業名</Label>
         <Input
+          id="taskType"
           type="text"
           value={taskType}
           onChange={(e) => setTaskType(e.target.value)}
@@ -330,8 +332,9 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         />
       </div>
       <div className="space-y-2">
-        <Label>作業日数</Label>
+        <Label htmlFor="duration">作業日数</Label>
         <Input
+          id="duration"
           type="text"
           value={durationInput}
           onChange={handleDurationChange}
@@ -343,8 +346,9 @@ function TaskForm({ task, onSave, onCancel }: TaskFormProps) {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>メモ</Label>
+        <Label htmlFor="taskMemo">メモ</Label>
         <Textarea
+          id="taskMemo"
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           placeholder="作業に関するメモを入力してください"

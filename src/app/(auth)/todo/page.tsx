@@ -1,5 +1,5 @@
 import TodoScreen from '@/components/screens/TodoScreen';
 
-export default function Todo() {
+export default function TodoPage() {
   return <TodoScreen />;
-}
+} 
