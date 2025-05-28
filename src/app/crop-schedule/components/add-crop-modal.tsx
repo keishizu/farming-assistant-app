@@ -17,8 +17,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { saveCrops, getCrops } from "@/services/crop-storage";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
+import { saveCustomCrop, getCustomCrops } from "@/services/customCrop-service";
+import { useSession } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
 
 interface AddCropModalProps {
   isOpen: boolean;
@@ -27,12 +29,14 @@ interface AddCropModalProps {
 }
 
 export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
+  const { session } = useSession();
+  const supabase = useSupabaseWithAuth();
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");
   const [color, setColor] = useState<CropColorOption>(CROP_COLOR_OPTIONS[0]);
-  const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const [pendingTasks, setPendingTasks] = useState<CropTask[]>([]);
+  const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const { toast } = useToast();
 
   const formatTaskDateRange = (task: CropTask) => {
@@ -47,8 +51,26 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!session?.user?.id) {
+      toast({
+        title: "認証エラー",
+        description: "ユーザー情報が取得できません。ログインしてください。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!supabase) {
+      toast({
+        title: "エラー",
+        description: "データベース接続に失敗しました",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!name.trim()) {
       toast({
@@ -69,47 +91,64 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     }
 
     // 作物名の重複チェック
-    const existingCrops = getCrops();
-    if (existingCrops.some(crop => crop.name === name.trim())) {
+    try {
+      const token = await session.getToken({ template: "supabase" });
+      if (!token) {
+        throw new Error("認証トークンの取得に失敗しました");
+      }
+      const existingCrops = await getCustomCrops(supabase, session.user.id, token);
+      if (existingCrops.some(crop => crop.name === name.trim())) {
+        toast({
+          title: "エラー",
+          description: "この作物名は既に登録されています",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const newCrop: CustomCrop = {
+        id: uuidv4(),
+        name: name.trim(),
+        startDate: new Date(startDate),
+        memo: memo.trim(),
+        tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
+        color: {
+          text: color.text,
+          bg: color.bg,
+          label: color.label,
+        },
+      };
+
+      console.log("Attempting to save new crop:", newCrop);
+
+      // 作物を保存
+      await saveCustomCrop(supabase, session.user.id, [newCrop]);
+      onAdd(newCrop);
+      onClose();
+
+      // フォームをリセット
+      setName("");
+      setStartDate("");
+      setMemo("");
+      setColor(CROP_COLOR_OPTIONS[0]);
+      setPendingTasks([]);
+      setEditingTask(null);
+
+      // 成功メッセージを表示
+      toast({
+        title: "追加しました",
+        description: "新しい作物を追加しました",
+      });
+    } catch (error) {
+      console.error("Error saving crop:", error);
       toast({
         title: "エラー",
-        description: "この作物名は既に登録されています",
+        description: error instanceof Error 
+          ? `作物の保存に失敗しました: ${error.message}`
+          : "作物の保存に失敗しました",
         variant: "destructive",
       });
-      return;
     }
-
-    const newCrop: CustomCrop = {
-      id: uuidv4(),
-      name: name.trim(),
-      startDate: new Date(startDate),
-      memo: memo.trim(),
-      tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
-      color: {
-        text: color.text,
-        bg: color.bg,
-        label: color.label,
-      },
-    };
-
-    // 作物を保存
-    saveCrops([...existingCrops, newCrop]);
-    onAdd(newCrop);
-    onClose();
-
-    // フォームをリセット
-    setName("");
-    setStartDate("");
-    setMemo("");
-    setColor(CROP_COLOR_OPTIONS[0]);
-    setPendingTasks([]);
-    setEditingTask(null);
-
-    // 成功メッセージを表示
-    toast({
-      title: "追加しました",
-      description: "新しい作物を追加しました",
-    });
   };
   
   // 作業工程のデフォルト入力項目

@@ -7,41 +7,141 @@ import { useState, useEffect } from "react";
 import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { saveSmartCrops, getSmartCrops } from "@/services/smart-crop-storage";
+import { saveSmartCrops, getSmartCrops } from "@/services/smartCrop-service";
 import { AddCropModal } from "@/app/smart-schedule/components/add-crop-modal";
+import { useToast } from "@/hooks/use-toast";
+import { useSession } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
 
 export default function SmartScheduleScreen() {
+  const { session } = useSession();
+  const supabase = useSupabaseWithAuth();
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const { toast } = useToast();
 
-  // マウント時にデータを読み込む
   useEffect(() => {
-    setIsMounted(true);
-    const savedCrops = getSmartCrops();
-    setCrops(savedCrops);
-  }, []);
+    const fetchCrops = async () => {
+      if (!session?.user?.id || !supabase) return;
 
-  // データが変更された時のみ保存
+      try {
+        const token = await session.getToken({ template: "supabase" });
+        if (!token) {
+          throw new Error("認証トークンの取得に失敗しました");
+        }
+        const smartCrops = await getSmartCrops(supabase, session.user.id);
+        setCrops(smartCrops);
+        setIsMounted(true);
+      } catch (error) {
+        console.error("Failed to fetch smart crops:", error);
+        toast({
+          title: "エラー",
+          description: "作物データの取得に失敗しました",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchCrops();
+  }, [session, supabase, toast]);
+
   useEffect(() => {
-    if (isMounted) {
-      saveSmartCrops(crops);
+    const saveCrops = async () => {
+      if (!isMounted || !session?.user?.id || !supabase) return;
+      
+      try {
+        await saveSmartCrops(supabase, session.user.id, crops);
+      } catch (error) {
+        console.error("Failed to save smart crops:", error);
+        toast({
+          title: "エラー",
+          description: "作物データの保存に失敗しました",
+          variant: "destructive",
+        });
+      }
+    };
+
+    saveCrops();
+  }, [crops, isMounted, session, supabase, toast]);
+
+  if (!supabase) {
+    return null;
+  }
+
+  const handleAddCrop = async (newCrop: CustomCrop) => {
+    if (!session?.user?.id) {
+      toast({
+        title: "認証エラー",
+        description: "ユーザー情報が取得できません。ログインしてください。",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [crops, isMounted]);
 
-  const handleAddCrop = (newCrop: CustomCrop) => {
-    setCrops(prevCrops => [...prevCrops, newCrop]);
-    setIsAddModalOpen(false);
+    try {
+      const updatedCrops = [...crops, newCrop];
+      await saveSmartCrops(supabase, session.user.id, updatedCrops);
+      setCrops(updatedCrops);
+      setIsAddModalOpen(false);
+    } catch (error) {
+      console.error("Failed to save smart crop:", error);
+      toast({
+        title: "エラー",
+        description: `作物の保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleUpdateCrop = (updatedCrop: CustomCrop) => {
-    setCrops(prevCrops => prevCrops.map(crop => 
-      crop.id === updatedCrop.id ? updatedCrop : crop
-    ));
+  const handleUpdateCrop = async (updatedCrop: CustomCrop) => {
+    if (!session?.user?.id) {
+      toast({
+        title: "認証エラー",
+        description: "ユーザー情報が取得できません。ログインしてください。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updatedCrops = crops.map(crop => 
+        crop.id === updatedCrop.id ? updatedCrop : crop
+      );
+      await saveSmartCrops(supabase, session.user.id, updatedCrops);
+      setCrops(updatedCrops);
+    } catch (error) {
+      console.error("Failed to update smart crop:", error);
+      toast({
+        title: "エラー",
+        description: "作物の更新に失敗しました",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteCrop = (cropId: string) => {
-    setCrops(prevCrops => prevCrops.filter(crop => crop.id !== cropId));
+  const handleDeleteCrop = async (cropId: string) => {
+    if (!session?.user?.id) {
+      toast({
+        title: "認証エラー",
+        description: "ユーザー情報が取得できません。ログインしてください。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updatedCrops = crops.filter(crop => crop.id !== cropId);
+      await saveSmartCrops(supabase, session.user.id, updatedCrops);
+      setCrops(updatedCrops);
+    } catch (error) {
+      console.error("Failed to delete smart crop:", error);
+      toast({
+        title: "エラー",
+        description: "作物の削除に失敗しました",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

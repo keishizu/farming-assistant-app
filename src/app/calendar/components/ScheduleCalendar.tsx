@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2 } from "lucide-react";
@@ -23,12 +23,14 @@ import {
 import { ja } from "date-fns/locale";
 
 import { Task } from "@/types/calendar";
-import { TaskType } from "@/types/crop";
 import { EditTaskModal } from "./edit-task-modal";
 import { useToast } from "@/hooks/use-toast";
-import { getCrops, saveCrops } from "@/services/crop-storage";
-import { getSmartCrops } from "@/services/smart-crop-storage";
+import { getCustomCrops, saveCustomCrop } from "@/services/customCrop-service";
+import { getSmartCrops, saveSmartCrops } from "@/services/smartCrop-service";
 import { CustomCrop, CropTask } from "@/types/crop";
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useSession } from "@clerk/nextjs";
 
 interface ScheduleCalendarProps {
   tasks: Task[];
@@ -41,13 +43,15 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const { toast } = useToast();
+  const { userId, isLoaded } = useAuth();
+  const supabase = useSupabaseWithAuth();
 
   const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
   const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start, end });
 
-  const MAX_TASKS_PER_DAY = 1; // 最大1本まで帯を表示
-  const TASK_HEIGHT_REM = 1.5; // 帯1本分の高さ
+  const MAX_TASKS_PER_DAY = 1;
+  const TASK_HEIGHT_REM = 1.5;
 
   const getTasksForDate = (date: Date) => {
     const target = format(date, "yyyy-MM-dd");
@@ -57,11 +61,8 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   };
 
   const getCropColor = (cropName: string) => {
-    const customCrops = getCrops();
-    const smartCrops = getSmartCrops();
-    const allCrops = [...customCrops, ...smartCrops];
-    const crop = allCrops.find(c => c.name === cropName);
-    return crop?.color.bg || "bg-gray-100"; // 何もなければグレーでフォールバック
+    const task = tasks.find(t => t.cropName === cropName);
+    return task?.color || "bg-gray-100";
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -72,34 +73,29 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
     }
   };
 
-  const handleDeleteTask = (task: Task) => {
+  const handleDeleteTask = async (task: Task) => {
+    if (!isLoaded || !userId) {
+      toast({
+        title: "エラー",
+        description: "認証が必要です",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!supabase) {
+      console.log("Supabase client not initialized");
+      return;
+    }
+
     if (window.confirm("この予定を削除してもよろしいですか？")) {
-      // 予定カレンダーから削除
       if (onUpdate) {
         onUpdate(tasks.filter(t => t.id !== task.id));
       }
       
-      // 作物スケジュールからも削除
-      const crops = getCrops();
-      const updatedCrops = crops.map((crop: CustomCrop) => {
-        // 該当する作物を特定
-        if (crop.name === task.cropName) {
-          // 該当する工程を削除
-          const updatedTasks = crop.tasks.filter((t: CropTask) => t.id !== task.id);
-          return { ...crop, tasks: updatedTasks };
-        }
-        return crop;
-      });
-      
-      // 更新された作物スケジュールを保存
-      saveCrops(updatedCrops);
-      
-      // 削除完了のトーストを表示
-      const { dismiss } = toast({
+      toast({
         title: "削除しました",
         description: "予定を削除しました",
-        duration: 5000,
-        onClick: () => dismiss(),
       });
       
       setSelectedTask(null);

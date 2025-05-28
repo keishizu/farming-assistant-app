@@ -2,14 +2,21 @@
 
 import { ScheduleCalendar } from '@/app/calendar/components/ScheduleCalendar';
 import { RecordCalendar } from '@/app/calendar/components/RecordCalendar';
-import { getFarmRecords } from '@/services/farm-storage';
-import { getCrops } from '@/services/crop-storage';
+import { getFarmRecords } from '@/services/farmRecord-service';
 import { generateTasksFromCrops } from '@/services/schedule-service';
+import { getCustomCrops } from '@/services/customCrop-service';
+import { getSmartCrops } from '@/services/smartCrop-service';
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from '@/lib/supabase';
 import '@/app/calendar/calendar.css';
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { useEffect, useState } from 'react';
-import { Record, Task } from '@/types/calendar';
+import { useEffect, useState, useCallback } from 'react';
+import { Task } from '@/types/calendar';
+import { FarmRecord } from '@/types/farm';
+import { CustomCrop } from '@/types/crop';
+import { addDays, format } from 'date-fns';
+import { useToast } from "@/hooks/use-toast";
 
 const container = {
   hidden: { opacity: 0 },
@@ -27,31 +34,92 @@ const item = {
 };
 
 export default function CalendarScreen() {
-  const [records, setRecords] = useState<Record[]>([]);
+  const { userId, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
+  const [records, setRecords] = useState<FarmRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [customCrops, setCustomCrops] = useState<CustomCrop[]>([]);
+  const [smartCrops, setSmartCrops] = useState<CustomCrop[]>([]);
+  const { toast } = useToast();
 
-  const loadRecords = () => {
-    const farmRecords = getFarmRecords();
-    const formattedRecords: Record[] = farmRecords.map(record => ({
-      id: record.id,
-      cropName: record.crop,
-      taskName: record.task,
-      date: new Date(record.date),
-      memo: record.memo,
-      photoUrl: record.photoUrl,
-    }));
-    setRecords(formattedRecords);
-  };
+  const loadData = useCallback(async () => {
+    if (!userId || !supabase) {
+      setIsLoading(false);
+      return;
+    }
 
-  const loadTasks = () => {
-    const generatedTasks = generateTasksFromCrops();
-    setTasks(generatedTasks);
-  };
+    try {
+      setIsLoading(true);
+      const token = await getToken({ template: "supabase" });
+      if (!token) {
+        console.error("認証トークンの取得に失敗しました");
+        toast({
+          title: "エラー",
+          description: "認証トークンの取得に失敗しました",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const [farmRecords, customCropsData, smartCropsData] = await Promise.all([
+        getFarmRecords(supabase, userId),
+        getCustomCrops(supabase, userId, token),
+        getSmartCrops(supabase, userId),
+      ]);
+
+      setRecords(farmRecords);
+      setCustomCrops(customCropsData);
+      setSmartCrops(smartCropsData);
+
+      const allCrops = [...customCropsData, ...smartCropsData];
+      const generatedTasks = allCrops.flatMap(crop => {
+        return crop.tasks.map(task => {
+          const startDate = addDays(crop.startDate, task.daysFromStart);
+          const endDate = addDays(startDate, task.duration - 1);
+
+          return {
+            id: task.id,
+            cropName: crop.name,
+            taskName: task.taskType,
+            taskType: task.taskType,
+            startDate: format(startDate, "yyyy-MM-dd"),
+            endDate: format(endDate, "yyyy-MM-dd"),
+            memo: task.memo,
+            color: crop.color.bg,
+          };
+        });
+      });
+
+      setTasks(generatedTasks);
+    } catch (error) {
+      console.error("データの読み込みに失敗しました:", error);
+      toast({
+        title: "エラー",
+        description: "データの読み込みに失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, supabase, getToken, toast]);
 
   useEffect(() => {
-    loadRecords();
-    loadTasks();
+    loadData();
+  }, [loadData]);
+
+  const handleTasksUpdate = useCallback((updatedTasks: Task[]) => {
+    setTasks(updatedTasks);
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-800"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -74,7 +142,7 @@ export default function CalendarScreen() {
             <motion.div variants={item}>
               <Card className="p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">予定カレンダー</h2>
-                <ScheduleCalendar tasks={tasks} onUpdate={setTasks} />
+                <ScheduleCalendar tasks={tasks} onUpdate={handleTasksUpdate} />
               </Card>
             </motion.div>
             <motion.div variants={item}>
@@ -88,4 +156,4 @@ export default function CalendarScreen() {
       </div>
     </div>
   );
-} 
+}

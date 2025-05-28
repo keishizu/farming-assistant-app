@@ -1,19 +1,32 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { updateFarmRecord } from "@/services/farm-storage";
+import { updateFarmRecord } from "@/services/farmRecord-service";
 import { FarmRecord } from "@/types/farm";
-import { getCropNames, getCrops } from "@/services/crop-storage";
+import { getCustomCrops } from "@/services/customCrop-service";
+import { getSmartCrops } from "@/services/smartCrop-service";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
-import { CustomCrop } from "@/types/crop";
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -22,154 +35,134 @@ interface EditRecordModalProps {
   onUpdate: (record: FarmRecord) => void;
 }
 
-export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecordModalProps) {
-  const [crop, setCrop] = useState(record.crop);
-  const [task, setTask] = useState(record.task);
+export function EditRecordModal({
+  isOpen,
+  onClose,
+  record,
+  onUpdate,
+}: EditRecordModalProps) {
+  const { userId, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
+  const [cropName, setCropName] = useState(record.crop);
+  const [taskName, setTaskName] = useState(record.task);
   const [memo, setMemo] = useState(record.memo || "");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(record.photoUrl || null);
+  const [photoUrl, setPhotoUrl] = useState(record.photoUrl || "");
   const [cropNames, setCropNames] = useState<string[]>([]);
-  const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>([]);
   const { toast } = useToast();
 
-  // 作物名の選択肢を取得
   useEffect(() => {
-    if (isOpen) {
-      setCropNames(getCropNames());
-    }
-  }, [isOpen]);
-
-  // 選択された作物に紐づく作業名を取得
-  useEffect(() => {
-    if (isOpen && crop) {
-      const crops = getCrops();
-      const selectedCrop = crops.find(c => c.name === crop);
-      if (selectedCrop) {
-        const taskTypes = selectedCrop.tasks.map(task => task.taskType);
-        const uniqueTaskTypes = Array.from(new Set(taskTypes));
-        setAvailableTaskTypes(uniqueTaskTypes);
-        
-        // 現在の作業名が選択された作物の作業名に含まれていない場合、リセット
-        if (!uniqueTaskTypes.includes(task)) {
-          setTask("");
+    const fetchCropNames = async () => {
+      if (!userId || !supabase) return;
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) {
+          throw new Error("認証トークンの取得に失敗しました");
         }
-      } else {
-        setAvailableTaskTypes([]);
-        setTask("");
+        const [customCrops, smartCrops] = await Promise.all([
+          getCustomCrops(supabase, userId, token),
+          getSmartCrops(supabase, userId),
+        ]);
+        const allCrops = [...customCrops, ...smartCrops];
+        const names = Array.from(new Set(allCrops.map((crop) => crop.name)));
+        setCropNames(names);
+      } catch (error) {
+        console.error("Failed to fetch crop names:", error);
+        toast({
+          title: "エラー",
+          description: "作物名の取得に失敗しました",
+          variant: "destructive",
+        });
       }
-    } else {
-      setAvailableTaskTypes([]);
-      setTask("");
-    }
-  }, [isOpen, crop, task]);
-
-  const handleCropChange = (value: string) => {
-    setCrop(value);
-    setTask(""); // 作物が変更されたら作業名をリセット
-  };
-
-  const handleTaskChange = (value: string) => {
-    if (!crop) {
-      toast({
-        title: "エラー",
-        description: "先に作物を選択してください",
-        variant: "destructive",
-      });
-      return;
-    }
-    setTask(value);
-  };
-
-  const handleSave = () => {
-    if (!crop || !task) {
-      toast({
-        title: "エラー",
-        description: "作物と作業を選択してください",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const updatedRecord = {
-      ...record,
-      crop,
-      task,
-      memo: memo || undefined,
-      photoUrl: photoUrl || undefined,
     };
 
-    updateFarmRecord(record.id, updatedRecord);
-    onUpdate(updatedRecord);
-    onClose();
+    fetchCropNames();
+  }, [userId, supabase, getToken, toast]);
 
-    toast({
-      title: "更新しました",
-      description: "記録を更新しました",
-    });
-  };
+  const handleSave = async () => {
+    if (!userId || !supabase) return;
 
-  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    try {
+      const token = await getToken({ template: "supabase" });
+      if (!token) {
+        throw new Error("認証トークンの取得に失敗しました");
+      }
 
-    // 画像ファイルのみ許可
-    if (!file.type.startsWith('image/')) {
+      const updatedRecord: FarmRecord = {
+        ...record,
+        crop: cropName,
+        task: taskName,
+        memo: memo || undefined,
+        photoUrl: photoUrl || undefined,
+      };
+
+      await updateFarmRecord(
+        supabase,
+        userId,
+        token,
+        record.id,
+        {
+          crop: cropName,
+          task: taskName,
+          memo: memo || undefined,
+          photoUrl: photoUrl || undefined,
+        }
+      );
+
+      await onUpdate(updatedRecord);
+      onClose();
+
+      toast({
+        title: "更新しました",
+        description: "記録を更新しました",
+      });
+    } catch (error) {
+      console.error("Failed to update record:", error);
       toast({
         title: "エラー",
-        description: "画像ファイルを選択してください",
+        description: "記録の更新に失敗しました",
         variant: "destructive",
       });
-      return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64String = e.target?.result as string;
-      setPhotoUrl(base64String);
-    };
-    reader.readAsDataURL(file);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>記録を編集</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="crop">作物選択</Label>
-            <Select value={crop} onValueChange={handleCropChange}>
-              <SelectTrigger id="crop" className="w-full">
-                <SelectValue placeholder="作物を選んでください" />
+            <Label htmlFor="cropName">作物名</Label>
+            <Select value={cropName} onValueChange={setCropName}>
+              <SelectTrigger>
+                <SelectValue placeholder="作物を選択" />
               </SelectTrigger>
               <SelectContent>
-                {cropNames.map((cropName) => (
-                  <SelectItem key={cropName} value={cropName}>
-                    {cropName}
+                {cropNames.length === 0 ? (
+                  <SelectItem value="" disabled>
+                    作物がありません
                   </SelectItem>
-                ))}
+                ) : (
+                  cropNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="task">作業名</Label>
-            <Select 
-              value={task} 
-              onValueChange={handleTaskChange}
-              disabled={!crop}
-            >
-              <SelectTrigger id="task" className="w-full">
-                <SelectValue placeholder={crop ? "作業名を選んでください" : "先に作物を選択してください"} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTaskTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="taskName">作業名</Label>
+            <Input
+              id="taskName"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              placeholder="作業名を入力してください"
+            />
           </div>
 
           <div className="space-y-2">
@@ -178,60 +171,40 @@ export function EditRecordModal({ isOpen, onClose, record, onUpdate }: EditRecor
               id="memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="作業に関するメモを入力してください"
+              placeholder="メモを入力してください"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="photo">写真</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                id="photo"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-                className="hidden"
-              />
-              <label
-                htmlFor="photo"
-                className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-gray-50"
-              >
-                <Camera className="w-5 h-5" />
-                <span>写真を選択</span>
-              </label>
-              {photoUrl && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setPhotoUrl(null)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              )}
-            </div>
-            {photoUrl && (
-              <div className="relative w-full h-48 mt-2">
+          {photoUrl && (
+            <div className="space-y-2">
+              <Label>写真</Label>
+              <div className="relative w-full h-48">
                 <Image
                   src={photoUrl}
-                  alt="作業写真"
+                  alt="記録の写真"
                   fill
                   className="object-cover rounded-lg"
                 />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={() => setPhotoUrl("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
-            キャンセル
-          </Button>
-          <Button onClick={handleSave}>
-            保存
-          </Button>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={onClose}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSave}>保存</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
-} 
+}

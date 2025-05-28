@@ -1,101 +1,159 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import {
+  format,
+  addMonths,
+  subMonths,
+  addYears,
+  subYears,
   startOfMonth,
   endOfMonth,
-  subMonths,
-  addMonths,
-  subYears,
-  addYears,
-  eachDayOfInterval,
-  isToday,
-  format,
-  isSameMonth,
   startOfWeek,
   endOfWeek,
+  eachDayOfInterval,
+  isToday,
+  isSameMonth,
   isSameDay,
-  addDays,
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import Image from "next/image";
-import { Record, RecordCalendarProps } from "@/types/calendar";
-import { useToast } from "@/hooks/use-toast";
-import { deleteFarmRecord } from "@/services/farm-storage";
-import { EditRecordModal } from "./edit-record-modal";
 import { FarmRecord } from "@/types/farm";
-import { getCrops } from "@/services/crop-storage";
-import { getSmartCrops } from "@/services/smart-crop-storage";
+import { EditRecordModal } from "./edit-record-modal";
+import { useToast } from "@/hooks/use-toast";
+import { getCustomCrops } from "@/services/customCrop-service";
+import { getSmartCrops } from "@/services/smartCrop-service";
+import { deleteFarmRecord } from "@/services/farmRecord-service";
+import { CustomCrop } from "@/types/crop";
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
+
+interface RecordCalendarProps {
+  records: FarmRecord[];
+  onUpdate?: (records: FarmRecord[]) => void;
+}
 
 export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
+  const { userId, isLoaded, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
-  const [editingRecord, setEditingRecord] = useState<Record | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<FarmRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<FarmRecord | null>(null);
   const { toast } = useToast();
+  const [customCrops, setCustomCrops] = useState<CustomCrop[]>([]);
+  const [smartCrops, setSmartCrops] = useState<CustomCrop[]>([]);
 
-  const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
-  const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
-  const days = eachDayOfInterval({ start, end });
+  useEffect(() => {
+    const fetchCrops = async () => {
+      if (!isLoaded || !userId || !supabase) return;
 
-  const MAX_RECORDS_PER_DAY = 1; // 最大1本まで帯を表示
-  const RECORD_HEIGHT_REM = 1.5; // 帯1本分の高さ
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) {
+          throw new Error("認証トークンの取得に失敗しました");
+        }
+        const [customCropsData, smartCropsData] = await Promise.all([
+          getCustomCrops(supabase, userId, token),
+          getSmartCrops(supabase, userId),
+        ]);
+        setCustomCrops(customCropsData);
+        setSmartCrops(smartCropsData);
+      } catch (error) {
+        console.error("Failed to fetch crops:", error);
+        toast({
+          title: "エラー",
+          description: "作物データの取得に失敗しました",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchCrops();
+  }, [userId, isLoaded, supabase, getToken, toast]);
+
+  const days = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 }),
+    end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 }),
+  });
+
+  const MAX_RECORDS_PER_DAY = 1;
+  const RECORD_HEIGHT_REM = 1.5;
 
   const getRecordsForDate = (date: Date) => {
-    return records.filter((record) => isSameDay(record.date, date));
+    return records.filter(
+      (record) =>
+        format(new Date(record.date), "yyyy-MM-dd") ===
+        format(date, "yyyy-MM-dd")
+    );
   };
 
   const getCropColor = (cropName: string) => {
-    const customCrops = getCrops();
-    const smartCrops = getSmartCrops();
     const allCrops = [...customCrops, ...smartCrops];
-    const crop = allCrops.find(c => c.name === cropName);
+    const crop = allCrops.find((c) => c.name === cropName);
     return crop?.color.bg || "bg-gray-100";
   };
 
-  const handleDeleteRecord = (record: Record) => {
-    if (window.confirm("この作業実績を削除してもよろしいですか？")) {
-      const success = deleteFarmRecord(record.id);
-      if (success) {
+  const handleUpdateRecord = (updatedRecord: FarmRecord) => {
+    if (onUpdate) {
+      onUpdate(
+        records.map((record) =>
+          record.id === updatedRecord.id ? updatedRecord : record
+        )
+      );
+    }
+  };
+
+  const handleDeleteRecord = async (record: FarmRecord) => {
+    if (!isLoaded || !userId || !supabase) {
+      toast({
+        title: "エラー",
+        description: "認証が必要です",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (window.confirm("この記録を削除してもよろしいですか？")) {
+      try {
+        await deleteFarmRecord(supabase, userId, record.id);
         setSelectedRecord(null);
         if (onUpdate) {
-          onUpdate(records.filter(r => r.id !== record.id));
+          onUpdate(records.filter((r) => r.id !== record.id));
         }
-        const { dismiss } = toast({
+        toast({
           title: "削除しました",
           description: "作業実績を削除しました",
-          duration: 5000,
-          onClick: () => dismiss(),
+        });
+      } catch (error) {
+        console.error("Failed to delete record:", error);
+        toast({
+          title: "エラー",
+          description: "記録の削除に失敗しました",
+          variant: "destructive",
         });
       }
     }
   };
 
-  const handleUpdateRecord = (updatedRecord: Record) => {
-    if (onUpdate) {
-      onUpdate(records.map(record => 
-        record.id === updatedRecord.id ? updatedRecord : record
-      ));
-    }
-  };
-
-  const convertToFarmRecord = (record: Record): FarmRecord => ({
-    id: record.id,
-    userId: "demo-user",
-    date: format(record.date, "yyyy-MM-dd"),
-    crop: record.cropName,
-    task: record.taskName,
-    memo: record.memo,
-    photoUrl: record.photoUrl,
-    createdAt: new Date().toISOString(),
-  });
-
   return (
     <div className="w-full">
-      {/* ヘッダー */}
+      {/* カレンダーのヘッダーとナビゲーション */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => setCurrentDate(subYears(currentDate, 1))}>
@@ -118,62 +176,48 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
         </div>
       </div>
 
-      {/* 曜日ヘッダー */}
+      {/* カレンダーグリッド */}
       <div className="calendar-grid relative">
         {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
           <div key={day} className="calendar-header">
             {day}
           </div>
         ))}
-
-        {/* 日付セル */}
         {days.map((date) => {
-          const dateRecords = getRecordsForDate(date);
-
+          const todayRecords = getRecordsForDate(date);
           return (
             <div
               key={date.toISOString()}
-              className={`calendar-cell min-h-[100px] relative ${
-                isToday(date) ? "today" : ""
-              } ${!isSameMonth(date, currentDate) ? "other-month" : ""}`}
-              onClick={() => dateRecords.length > 0 && setSelectedDate(date)}
+              className={`calendar-cell min-h-[100px] relative ${isToday(date) ? "today" : ""} ${
+                !isSameMonth(date, currentDate) ? "other-month" : ""
+              }`}
+              onClick={() => todayRecords.length > 0 && setSelectedDate(date)}
             >
               <div className="calendar-date relative">{format(date, "d")}</div>
-
-              {/* 帯表示 */}
-              {dateRecords.slice(0, MAX_RECORDS_PER_DAY).map((record, index) => {
-                const cropColor = getCropColor(record.cropName);
-                return (
-                  <div
-                    key={record.id}
-                    className={`calendar-bar record-bar ${cropColor}`}
-                    style={{
-                      top: `${0.2 + (RECORD_HEIGHT_REM * (index + 1))}rem`,
-                      height: "1.25rem",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedRecord(record);
-                    }}
-                  >
-                    {record.taskName}
-                  </div>
-                );
-              })}
-
-              {/* +N表示 */}
-              {dateRecords.length > MAX_RECORDS_PER_DAY && (
+              {todayRecords.slice(0, MAX_RECORDS_PER_DAY).map((record, index) => (
                 <div
-                  className="absolute left-0 right-0 mx-1 text-center text-xs text-gray-500 cursor-pointer select-none"
+                  key={record.id}
+                  className={`calendar-bar record-bar ${getCropColor(record.crop)}`}
                   style={{
-                    top: `${2 + (RECORD_HEIGHT_REM * (MAX_RECORDS_PER_DAY + 1))}rem`,
+                    top: `${0.2 + RECORD_HEIGHT_REM * (index + 1)}rem`,
+                    height: "1.25rem",
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSelectedDate(date);
+                    setSelectedRecord(record);
                   }}
                 >
-                  +{dateRecords.length - MAX_RECORDS_PER_DAY}
+                  {record.task}
+                </div>
+              ))}
+              {todayRecords.length > MAX_RECORDS_PER_DAY && (
+                <div
+                  className="absolute left-0 right-0 mx-1 text-center text-xs text-gray-500 cursor-pointer select-none"
+                  style={{
+                    top: `${2 + RECORD_HEIGHT_REM * (MAX_RECORDS_PER_DAY + 1)}rem`,
+                  }}
+                >
+                  +{todayRecords.length - MAX_RECORDS_PER_DAY}
                 </div>
               )}
             </div>
@@ -181,27 +225,27 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
         })}
       </div>
 
-      {/* 実績一覧モーダル */}
+      {/* モーダルたち */}
       {selectedDate && (
-        <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
+        <Dialog open={Boolean(selectedDate)} onOpenChange={() => setSelectedDate(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の実績
+                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の記録
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
               {getRecordsForDate(selectedDate).map((record) => (
                 <div
                   key={record.id}
-                  className="p-2 rounded-lg border hover:bg-blue-50 cursor-pointer"
+                  className="p-2 rounded-lg border hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
                     setSelectedRecord(record);
                     setSelectedDate(null);
                   }}
                 >
-                  <div className="font-medium">{record.cropName}</div>
-                  <div className="text-sm text-gray-600">{record.taskName}</div>
+                  <div className="font-medium">{record.crop}</div>
+                  <div className="text-sm text-gray-600">{record.task}</div>
                 </div>
               ))}
             </div>
@@ -209,27 +253,18 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
         </Dialog>
       )}
 
-      {/* 実績詳細モーダル */}
       {selectedRecord && (
-        <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
+        <Dialog open={Boolean(selectedRecord)} onOpenChange={() => setSelectedRecord(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>作業詳細</DialogTitle>
+              <DialogTitle>記録の詳細</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div><div className="font-medium">作物名</div><div>{selectedRecord.crop}</div></div>
+              <div><div className="font-medium">作業名</div><div>{selectedRecord.task}</div></div>
               <div>
-                <div className="font-medium">作物名</div>
-                <div>{selectedRecord.cropName}</div>
-              </div>
-              <div>
-                <div className="font-medium">作業名</div>
-                <div>{selectedRecord.taskName}</div>
-              </div>
-              <div>
-                <div className="font-medium">作業日</div>
-                <div>
-                  {format(selectedRecord.date, "yyyy年MM月dd日", { locale: ja })}
-                </div>
+                <div className="font-medium">日付</div>
+                <div>{format(new Date(selectedRecord.date), "yyyy年MM月dd日", { locale: ja })}</div>
               </div>
               {selectedRecord.memo && (
                 <div>
@@ -240,8 +275,12 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
               {selectedRecord.photoUrl && (
                 <div>
                   <div className="font-medium">写真</div>
-                  <div className="relative w-full h-48">
-                    <Image src={selectedRecord.photoUrl} alt="作業写真" fill className="object-cover rounded-lg" />
+                  <div className="relative w-full h-48 mt-2">
+                    <img
+                      src={selectedRecord.photoUrl}
+                      alt="記録の写真"
+                      className="object-cover w-full h-full rounded-lg"
+                    />
                   </div>
                 </div>
               )}
@@ -271,23 +310,12 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
         </Dialog>
       )}
 
-      {/* 編集モーダル */}
       {editingRecord && (
         <EditRecordModal
           isOpen={!!editingRecord}
           onClose={() => setEditingRecord(null)}
-          record={convertToFarmRecord(editingRecord)}
-          onUpdate={(updatedFarmRecord) => {
-            const updatedRecord: Record = {
-              id: updatedFarmRecord.id,
-              cropName: updatedFarmRecord.crop,
-              taskName: updatedFarmRecord.task,
-              date: new Date(updatedFarmRecord.date),
-              memo: updatedFarmRecord.memo,
-              photoUrl: updatedFarmRecord.photoUrl,
-            };
-            handleUpdateRecord(updatedRecord);
-          }}
+          record={editingRecord}
+          onUpdate={handleUpdateRecord}
         />
       )}
     </div>

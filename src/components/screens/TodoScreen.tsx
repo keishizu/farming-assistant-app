@@ -3,11 +3,13 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect, useState } from 'react';
-import { Task } from '@/types/calendar';
-import { getCrops } from '@/services/crop-storage';
-import { getSmartCrops } from '@/services/smart-crop-storage';
-import { generateTasksFromCrops } from '@/services/schedule-service';
+import { useEffect, useState } from "react";
+import { Task } from "@/types/calendar";
+import { getTasksForDate } from "@/services/schedule-service";
+import { useAuth } from "@clerk/nextjs";
+import { getCompletedTasks } from "@/services/task-storage";
+import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const container = {
   hidden: { opacity: 0 },
@@ -24,119 +26,100 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
-// 作物名からカラーを取得する関数
-const getCropColorClass = (cropName: string): string => {
-  const customCrops = getCrops();
-  const smartCrops = getSmartCrops();
-  const allCrops = [...customCrops, ...smartCrops];
-  const crop = allCrops.find(c => c.name === cropName);
-  return crop?.color.text || "text-black"; // 何もなければ黒でフォールバック
-};
-
-// localStorageから完了状態を取得する関数
-const getCompletedTasks = (): Record<string, boolean> => {
-  if (typeof window === 'undefined') return {};
-  const completedTasks = localStorage.getItem('completed_tasks');
-  return completedTasks ? JSON.parse(completedTasks) : {};
-};
-
-// localStorageに完了状態を保存する関数
-const saveCompletedTasks = (completedTasks: Record<string, boolean>) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('completed_tasks', JSON.stringify(completedTasks));
+// ✅ 完了状態を localStorage で管理
+const saveCompletedTasks = (completed: Record<string, boolean>) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("completed_tasks", JSON.stringify(completed));
 };
 
 export default function TodoScreen() {
+  const { userId, isSignedIn, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [originalOrder, setOriginalOrder] = useState<string[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const loadTasks = () => {
-      const allTasks = generateTasksFromCrops();
-      
-      // 今日の日付のタスクのみをフィルタリング
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD形式
-      
-      const todayTasks = allTasks.filter(task => {
-        const startDate = new Date(task.startDate);
-        const endDate = new Date(task.endDate);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-        return today >= startDate && today <= endDate;
-      });
+    if (!userId || !isSignedIn || !supabase) return;
 
-      // 作物ごとにグループ化
-      const groupedTasks = todayTasks.reduce((acc, task) => {
-        if (!acc[task.cropName]) {
-          acc[task.cropName] = [];
+    const loadTasks = async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) {
+          console.error("認証トークンの取得に失敗しました");
+          toast({
+            title: "エラー",
+            description: "認証トークンの取得に失敗しました",
+            variant: "destructive",
+          });
+          return;
         }
-        acc[task.cropName].push(task);
-        return acc;
-      }, {} as Record<string, Task[]>);
 
-      // 作物ごとにソートされたタスクの配列を作成
-      const sortedTasks = Object.entries(groupedTasks)
-        .sort(([cropA], [cropB]) => cropA.localeCompare(cropB))
-        .flatMap(([_, tasks]) => tasks);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-      // 元の順序を保存
-      setOriginalOrder(sortedTasks.map(task => task.id));
+        const todayTasks = await getTasksForDate(supabase, userId, today, token);
 
-      // localStorageから完了状態を取得して適用
-      const completedTasks = getCompletedTasks();
-      const tasksWithCompletion = sortedTasks.map(task => ({
-        ...task,
-        completed: completedTasks[task.id] || false
-      }));
+        const groupedTasks = todayTasks.reduce((acc, task) => {
+          if (!acc[task.cropName]) acc[task.cropName] = [];
+          acc[task.cropName].push(task);
+          return acc;
+        }, {} as Record<string, Task[]>);
 
-      // 完了状態でソート（未完了→完了の順）
-      const sortedTasksWithCompletion = tasksWithCompletion.sort((a, b) => {
-        if (a.completed === b.completed) {
-          // 同じ完了状態の場合は元の順序を維持
-          return originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id);
-        }
-        return a.completed ? 1 : -1;
-      });
+        const sortedTasks = Object.entries(groupedTasks)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .flatMap(([_, taskList]) => taskList);
 
-      setTasks(sortedTasksWithCompletion);
+        setOriginalOrder(sortedTasks.map(task => task.id));
+
+        const completedMap = getCompletedTasks();
+        const withStatus = sortedTasks.map(task => ({
+          ...task,
+          completed: completedMap[task.id] || false,
+        }));
+
+        const sortedWithStatus = withStatus.sort((a, b) => {
+          if (a.completed === b.completed) {
+            return originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id);
+          }
+          return a.completed ? 1 : -1;
+        });
+
+        setTasks(sortedWithStatus);
+      } catch (error) {
+        console.error("タスクの読み込みに失敗しました:", error);
+        toast({
+          title: "エラー",
+          description: "タスクの読み込みに失敗しました",
+          variant: "destructive",
+        });
+      }
     };
 
     loadTasks();
-  }, []);
+  }, [userId, isSignedIn, supabase, getToken, toast]);
 
   const handleTaskComplete = (taskId: string) => {
-    setTasks(prevTasks => {
-      const updatedTasks = prevTasks.map(task =>
+    setTasks(prev => {
+      const updated = prev.map(task =>
         task.id === taskId ? { ...task, completed: !task.completed } : task
       );
-      
-      // 未完了タスクと完了タスクを分離
-      const incompleteTasks = updatedTasks.filter(task => !task.completed);
-      const completedTasks = updatedTasks.filter(task => task.completed);
 
-      // 未完了タスクを元の順序で並び替え
-      const sortedIncompleteTasks = incompleteTasks.sort(
-        (a, b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id)
-      );
+      const incomplete = updated.filter(t => !t.completed);
+      const complete = updated.filter(t => t.completed);
 
-      // 完了タスクを元の順序で並び替え
-      const sortedCompletedTasks = completedTasks.sort(
-        (a, b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id)
-      );
+      const sorted = [
+        ...incomplete.sort((a, b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id)),
+        ...complete.sort((a, b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id)),
+      ];
 
-      // 未完了タスクと完了タスクを結合
-      const sortedTasks = [...sortedIncompleteTasks, ...sortedCompletedTasks];
-
-      // localStorageに完了状態を保存
-      const completedTasksMap = sortedTasks.reduce((acc, task) => {
+      const completedMap = sorted.reduce((acc, task) => {
         acc[task.id] = task.completed || false;
         return acc;
       }, {} as Record<string, boolean>);
-      saveCompletedTasks(completedTasksMap);
 
-      return sortedTasks;
+      saveCompletedTasks(completedMap);
+      return sorted;
     });
   };
 
@@ -159,28 +142,36 @@ export default function TodoScreen() {
       >
         {tasks.map((task) => (
           <motion.div key={task.id} variants={item}>
-            <Card className={`p-4 transition-colors duration-200 ${task.completed ? 'bg-gray-100' : ''}`}>
+            <Card
+              className={`p-4 transition-colors duration-200 ${
+                task.completed ? "bg-gray-100" : ""
+              }`}
+            >
               <div className="flex items-start gap-4">
-                <Checkbox 
-                  id={`task-${task.id}`} 
+                <Checkbox
+                  id={`task-${task.id}`}
                   className="mt-1"
                   checked={task.completed}
                   onCheckedChange={() => handleTaskComplete(task.id)}
                 />
                 <div className="flex-1">
-                  <div className="flex items-center">
-                    <label
-                      htmlFor={`task-${task.id}`}
-                      className={`text-lg font-medium cursor-pointer ${task.completed ? 'line-through text-gray-500' : ''}`}
-                    >
-                      <span className={`inline-block ${task.completed ? 'text-gray-500' : getCropColorClass(task.cropName)} ${task.completed ? 'line-through' : ''}`}>
-                        {task.cropName}
-                      </span>
-                      <span className="text-foreground">{`：${task.taskName}作業`}</span>
-                    </label>
-                  </div>
+                  <label
+                    htmlFor={`task-${task.id}`}
+                    className={`text-lg font-medium cursor-pointer ${
+                      task.completed ? "line-through text-gray-500" : ""
+                    }`}
+                  >
+                    <span className={`inline-block ${task.completed ? "text-gray-500" : task.color}`}>
+                      {task.cropName}
+                    </span>
+                    <span className="text-foreground">{`：${task.taskName}作業`}</span>
+                  </label>
                   {task.memo && (
-                    <p className={`text-sm text-gray-600 mt-1 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                    <p
+                      className={`text-sm text-gray-600 mt-1 ${
+                        task.completed ? "line-through text-gray-500" : ""
+                      }`}
+                    >
                       {task.memo}
                     </p>
                   )}

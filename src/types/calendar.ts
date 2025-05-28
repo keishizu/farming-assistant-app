@@ -9,6 +9,7 @@ export interface Task {
   endDate: string;   // ISO形式 "2025-04-28"
   memo?: string;
   completed?: boolean;
+  color?: string;
 }
 
 export interface Record {

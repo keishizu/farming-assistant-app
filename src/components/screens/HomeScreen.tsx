@@ -6,19 +6,32 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { saveFarmRecord } from "@/services/farm-storage";
+import { saveFarmRecord } from "@/services/farmRecord-service";
 import { NewFarmRecord } from "@/types/farm";
-import { getCropNames, getTaskTypesForCrop } from "@/services/crop-storage";
+import {
+  getCropNames,
+  getTaskTypesForCrop,
+} from "@/services/Supabase-crop-utils";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
 
 export default function HomeScreen() {
+  const { userId, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
   const [crop, setCrop] = useState("");
   const [task, setTask] = useState("");
   const [memo, setMemo] = useState("");
@@ -29,30 +42,48 @@ export default function HomeScreen() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // 作物名の選択肢を取得
   useEffect(() => {
-    setCropNames(getCropNames());
-  }, []);
+    if (!userId) return;
 
-  // 選択された作物に紐づく作業名を取得
-  useEffect(() => {
-    if (crop) {
-      const taskTypes = getTaskTypesForCrop(crop);
-      setAvailableTaskTypes(taskTypes);
-      
-      // 現在の作業名が選択された作物の作業名に含まれていない場合、リセット
-      if (!taskTypes.includes(task)) {
-        setTask("");
+    const fetchCropNames = async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) throw new Error("Token not found");
+        const names = await getCropNames(userId, token);
+        setCropNames(names);
+      } catch (err) {
+        console.error(err);
       }
-    } else {
+    };
+
+    fetchCropNames();
+  }, [userId, getToken]);
+
+  useEffect(() => {
+    if (!userId || !crop) {
       setAvailableTaskTypes([]);
       setTask("");
+      return;
     }
-  }, [crop, task]);
+
+    const fetchTaskTypes = async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) throw new Error("Token not found");
+        const taskTypes = await getTaskTypesForCrop(userId, crop, token);
+        setAvailableTaskTypes(taskTypes);
+        if (!taskTypes.includes(task)) setTask("");
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchTaskTypes();
+  }, [userId, crop, task, getToken]);
 
   const handleCropChange = (value: string) => {
     setCrop(value);
-    setTask(""); // 作物が変更されたら作業名をリセット
+    setTask("");
   };
 
   const handleTaskChange = (value: string) => {
@@ -67,8 +98,8 @@ export default function HomeScreen() {
     setTask(value);
   };
 
-  const handleSave = () => {
-    if (!crop || !task) {
+  const handleSave = async () => {
+    if (!userId || !crop || !task) {
       toast({
         title: "エラー",
         description: "作物と作業を選択してください",
@@ -78,38 +109,45 @@ export default function HomeScreen() {
     }
 
     const record: NewFarmRecord = {
-      userId: "demo-user",
+      userId,
       date: format(date, "yyyy-MM-dd"),
-      crop: crop,
-      task: task,
+      crop,
+      task,
       memo: memo || undefined,
       photoUrl: photoUrl || undefined,
     };
 
-    saveFarmRecord(record);
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not initialized");
+      }
+      await saveFarmRecord(supabase, userId, record);
+      toast({
+        title: "保存しました",
+        description: `${crop}の${task}を記録しました`,
+      });
 
-    toast({
-      title: "保存しました",
-      description: `${crop}の${task}を記録しました`,
-    });
-
-    // フォームをリセット
-    setCrop("");
-    setTask("");
-    setMemo("");
-    setPhotoUrl("");
-    setDate(new Date());
-
-    // カレンダー画面を更新
-    router.refresh();
+      setCrop("");
+      setTask("");
+      setMemo("");
+      setPhotoUrl("");
+      setDate(new Date());
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: "保存エラー",
+        description: "作業記録の保存に失敗しました",
+        variant: "destructive",
+      });
+      console.error(error);
+    }
   };
 
   const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // 画像ファイルのみ許可
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       toast({
         title: "エラー",
         description: "画像ファイルを選択してください",
@@ -143,10 +181,7 @@ export default function HomeScreen() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="workDate">作業日</Label>
-            <DatePicker
-              date={date}
-              onSelect={setDate}
-            />
+            <DatePicker date={date} onSelect={setDate} />
           </div>
 
           <div className="space-y-2">
@@ -167,13 +202,17 @@ export default function HomeScreen() {
 
           <div className="space-y-2">
             <Label htmlFor="task">作業名</Label>
-            <Select 
-              value={task} 
+            <Select
+              value={task}
               onValueChange={handleTaskChange}
               disabled={!crop}
             >
               <SelectTrigger id="task" className="w-full">
-                <SelectValue placeholder={crop ? "作業名を選んでください" : "先に作物を選択してください"} />
+                <SelectValue
+                  placeholder={
+                    crop ? "作業名を選んでください" : "先に作物を選択してください"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {availableTaskTypes.map((type) => (
@@ -237,7 +276,7 @@ export default function HomeScreen() {
         </div>
 
         <div className="space-y-3">
-          <Button 
+          <Button
             className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
             onClick={handleSave}
           >

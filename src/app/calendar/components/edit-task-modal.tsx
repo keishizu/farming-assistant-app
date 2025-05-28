@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,12 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Task } from "@/types/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { getCrops, saveCrops } from "@/services/crop-storage";
 import { CustomCrop } from "@/types/crop";
-import { differenceInCalendarDays, startOfDay, format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { getCustomCrops, saveCustomCrop } from "@/services/customCrop-service";
+import { getSmartCrops, saveSmartCrops } from "@/services/smartCrop-service";
+import { useAuth } from "@clerk/nextjs";
+import { useSupabaseWithAuth } from "@/lib/supabase";
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -22,117 +25,155 @@ interface EditTaskModalProps {
 
 export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModalProps) {
   const [taskName, setTaskName] = useState(task.taskName);
-  const [startDate, setStartDate] = useState(startOfDay(new Date(task.startDate)));
-  const [endDate, setEndDate] = useState(startOfDay(new Date(task.endDate)));
+  const [startDate, setStartDate] = useState<Date>(parseISO(task.startDate));
+  const [endDate, setEndDate] = useState<Date | undefined>(
+    task.endDate ? parseISO(task.endDate) : undefined
+  );
   const [memo, setMemo] = useState(task.memo || "");
+  const [cropNames, setCropNames] = useState<string[]>([]);
   const { toast } = useToast();
+  const { userId, isLoaded, getToken } = useAuth();
+  const supabase = useSupabaseWithAuth();
 
-  const handleSave = () => {
-    if (!taskName) {
-      const { dismiss } = toast({
-        title: "エラー",
-        description: "作業名を選択してください",
-        variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
-      });
-      return;
-    }
+  useEffect(() => {
+    const fetchCropNames = async () => {
+      if (!isLoaded || !userId || !supabase) return;
+      const token = await getToken({ template: "supabase" });
+      if (!token) return;
 
-    if (taskName.length > 5) {
-      const { dismiss } = toast({
-        title: "エラー",
-        description: "作業名は5文字以内で入力してください",
-        variant: "destructive",
-        duration: 5000,
-        onClick: () => dismiss(),
-      });
-      return;
-    }
+      try {
+        const [customCrops, smartCrops] = await Promise.all([
+          getCustomCrops(supabase, userId, token),
+          getSmartCrops(supabase, userId),
+        ]);
 
-    // 日付を日本時間の日付文字列に変換
-    const formatDate = (date: Date) => {
-      return format(date, 'yyyy-MM-dd');
-    };
-
-    const updatedTask: Task = {
-      ...task,
-      taskName,
-      startDate: formatDate(startDate),
-      endDate: formatDate(endDate),
-      memo: memo || undefined,
-    };
-
-    // 作物スケジュールも更新
-    const crops = getCrops();
-    const updatedCrops = crops.map((crop: CustomCrop) => {
-      if (crop.name === task.cropName) {
-        const updatedTasks = crop.tasks.map((t) => {
-          if (t.id === task.id) {
-            // 定植日からの相対日数を計算（タイムゾーンを考慮）
-            const cropStartDate = startOfDay(new Date(crop.startDate));
-            const newDaysFromStart = differenceInCalendarDays(startDate, cropStartDate);
-            const newDuration = differenceInCalendarDays(endDate, startDate) + 1;
-
-            return {
-              ...t,
-              taskType: taskName,
-              memo: memo || undefined,
-              daysFromStart: newDaysFromStart,
-              duration: newDuration,
-            };
-          }
-          return t;
+        const allCrops = [...customCrops, ...smartCrops];
+        const names = Array.from(new Set(allCrops.map((crop) => crop.name)));
+        setCropNames(names);
+      } catch (error) {
+        console.error("Failed to fetch crop names:", error);
+        toast({
+          title: "エラー",
+          description: "作物名の取得に失敗しました",
+          variant: "destructive",
         });
-        return { ...crop, tasks: updatedTasks };
       }
-      return crop;
-    });
-    saveCrops(updatedCrops);
+    };
 
-    onUpdate(updatedTask);
-    onClose();
+    fetchCropNames();
+  }, [isLoaded, userId, getToken, toast, supabase]);
 
-    const { dismiss } = toast({
-      title: "更新しました",
-      description: "予定を更新しました",
-      duration: 5000,
-      onClick: () => dismiss(),
-    });
+  const handleSave = async () => {
+    if (!isLoaded || !userId || !supabase) {
+      toast({
+        title: "エラー",
+        description: "認証が必要です",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const token = await getToken({ template: "supabase" });
+    if (!token) {
+      toast({
+        title: "エラー",
+        description: "認証トークンの取得に失敗しました",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updatedTask: Task = {
+        ...task,
+        taskName,
+        startDate: format(startDate, "yyyy-MM-dd"),
+        endDate: endDate ? format(endDate, "yyyy-MM-dd") : task.endDate,
+        memo: memo || undefined,
+      };
+
+      const [customCrops, smartCrops] = await Promise.all([
+        getCustomCrops(supabase, userId, token),
+        getSmartCrops(supabase, userId),
+      ]);
+
+      const allCrops = [...customCrops, ...smartCrops];
+      const crop = allCrops.find((c) => c.name === task.cropName);
+
+      if (crop) {
+        const updatedCrop: CustomCrop = {
+          ...crop,
+          tasks: crop.tasks.map((t) =>
+            t.id === task.id
+              ? {
+                  ...t,
+                  name: taskName,
+                  startDate: format(startDate, "yyyy-MM-dd"),
+                  endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
+                  memo: memo || undefined,
+                }
+              : t
+          ),
+        };
+
+        if (customCrops.some((c) => c.id === crop.id)) {
+          await saveCustomCrop(supabase, userId, [updatedCrop]);
+        } else {
+          const updatedSmartCrops = smartCrops.map((c) =>
+            c.id === crop.id ? updatedCrop : c
+          );
+          await saveSmartCrops(supabase, userId, updatedSmartCrops);
+        }
+      }
+
+      onUpdate(updatedTask);
+      onClose();
+
+      toast({
+        title: "更新しました",
+        description: "作業を更新しました",
+      });
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      toast({
+        title: "エラー",
+        description: "作業の更新に失敗しました",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>予定を編集</DialogTitle>
+          <DialogTitle>作業を編集</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cropName">作物名</Label>
+            <Input id="cropName" value={task.cropName} disabled />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="taskName">作業名</Label>
             <Input
               id="taskName"
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
-              placeholder="作業名を入力してください（5文字以内）"
-              maxLength={5}
+              placeholder="作業名を入力してください"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="startDate">開始日</Label>
-            <DatePicker
-              date={startDate}
-              onSelect={(date) => setStartDate(startOfDay(date))}
-            />
+            <Label>開始日</Label>
+            <DatePicker date={startDate} onSelect={setStartDate} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="endDate">終了日</Label>
-            <DatePicker
-              date={endDate}
-              onSelect={(date) => setEndDate(startOfDay(date))}
-            />
+            <Label>終了日</Label>
+            <DatePicker date={endDate || new Date()} onSelect={setEndDate} />
           </div>
 
           <div className="space-y-2">
@@ -141,20 +182,18 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
               id="memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="予定に関するメモを入力してください"
+              placeholder="メモを入力してください"
             />
           </div>
-        </div>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
-            キャンセル
-          </Button>
-          <Button onClick={handleSave}>
-            保存
-          </Button>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={onClose}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSave}>保存</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
-} 
+}
