@@ -15,6 +15,7 @@ import {
   ChevronsRight,
   Edit,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   format,
@@ -61,6 +62,8 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const [smartCrops, setSmartCrops] = useState<CustomCrop[]>([]);
   const [cropColors, setCropColors] = useState<Record<string, string>>({});
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [crops, setCrops] = useState<any[]>([]);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; alt: string } | null>(null);
 
   useEffect(() => {
     const fetchCrops = async () => {
@@ -143,10 +146,19 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
         if (onUpdate) {
           onUpdate(records.filter((r) => r.id !== record.id));
         }
-        toast({
-          title: "削除しました",
-          description: "作業実績を削除しました",
-        });
+        
+        // 画像があった場合は削除完了を通知
+        if (record.photoPath) {
+          toast({
+            title: "削除しました",
+            description: "作業実績と画像を削除しました",
+          });
+        } else {
+          toast({
+            title: "削除しました",
+            description: "作業実績を削除しました",
+          });
+        }
       } catch (error) {
         console.error("Failed to delete record:", error);
         toast({
@@ -303,15 +315,27 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
               {selectedRecord.photoPath && (
                 <div>
                   <div className="font-medium">写真</div>
-                  <div className="relative w-full h-48 mt-2">
-                    <Image
-                      src={imageUrls[selectedRecord.photoPath] || ""}
-                      alt="記録の写真"
-                      fill
-                      className="object-cover rounded-lg"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  </div>
+                  {imageUrls[selectedRecord.photoPath] ? (
+                    <div className="relative w-full h-48 mt-2 cursor-pointer" 
+                         onClick={() => selectedRecord.photoPath && setExpandedImage({
+                           url: imageUrls[selectedRecord.photoPath],
+                           alt: "記録の写真"
+                         })}>
+                      <Image
+                        src={imageUrls[selectedRecord.photoPath]}
+                        alt="記録の写真"
+                        fill
+                        className="object-cover rounded-lg"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-48 mt-2 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <p className="text-sm">画像を読み込み中...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex justify-end gap-2">
@@ -347,6 +371,34 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
           record={editingRecord}
           onUpdate={handleUpdateRecord}
         />
+      )}
+
+      {/* 画像拡大表示モーダル */}
+      {expandedImage && (
+        <Dialog open={Boolean(expandedImage)} onOpenChange={() => setExpandedImage(null)}>
+          <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-transparent border-none shadow-none">
+            <div className="relative w-full h-full">
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white border-white/20"
+                onClick={() => setExpandedImage(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="w-full h-full flex items-center justify-center">
+                <Image
+                  src={expandedImage.url}
+                  alt={expandedImage.alt}
+                  width={800}
+                  height={600}
+                  className="max-w-full max-h-full object-contain"
+                  sizes="(max-width: 768px) 90vw, (max-width: 1200px) 80vw, 70vw"
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

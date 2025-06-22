@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
-import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
+import { uploadImage, getSignedImageUrl, deleteImage } from "@/services/upload-image";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface EditRecordModalProps {
@@ -55,7 +55,11 @@ export function EditRecordModal({
   const [isLoadingExistingImage, setIsLoadingExistingImage] = useState(false);
   const [existingImageError, setExistingImageError] = useState<string | null>(null);
   const [cropNames, setCropNames] = useState<string[]>([]);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; alt: string } | null>(null);
   const { toast } = useToast();
+  
+  // 初期パスを保持（旧ファイル削除用）
+  const originalPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchCropNames = async () => {
@@ -96,6 +100,14 @@ export function EditRecordModal({
       setPreviewUrl(null);
       setExistingImageUrl(null);
       setExistingImageError(null);
+      
+      // 初期パスを更新
+      originalPathRef.current = record.photoPath || null;
+      
+      console.log('Modal opened with record:', {
+        recordPhotoPath: record.photoPath,
+        originalPathRef: originalPathRef.current
+      });
       
       // 既存画像がある場合は署名付きURLを取得
       if (record.photoPath && supabase) {
@@ -146,7 +158,8 @@ export function EditRecordModal({
       photoPath,
       previewUrl,
       selectedFile: selectedFile ? { name: selectedFile.name, size: selectedFile.size } : null,
-      record
+      record,
+      originalPath: originalPathRef.current
     });
 
     if (!cropName || !taskName) {
@@ -185,23 +198,12 @@ export function EditRecordModal({
       }
 
       let finalPhotoPath = photoPath;
+      let newImageUploaded = false;
 
-      if (selectedFile) {
-        console.log('Processing new image upload...');
-        try {
-          console.log('Uploading image:', selectedFile.name, 'Size:', selectedFile.size);
-          const { path } = await uploadImage(selectedFile, supabase, userId);
-          console.log('Image uploaded successfully:', path);
-          finalPhotoPath = path;
-        } catch (error) {
-          console.error("Failed to upload image:", error);
-          toast({
-            title: "エラー",
-            description: `画像のアップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            variant: "destructive",
-          });
-          return;
-        }
+      // selectedFileは既にhandlePhotoSelectでアップロード済みなので、
+      // photoPathをそのまま使用し、新規画像がアップロードされたかどうかを判定
+      if (selectedFile && photoPath && photoPath !== originalPathRef.current) {
+        newImageUploaded = true;
       }
 
       const updatedRecord: FarmRecord = {
@@ -239,24 +241,63 @@ export function EditRecordModal({
 
       console.log('Record updated in database successfully:', updateResult);
 
-      console.log('Calling onUpdate callback with:', updatedRecord);
-      await onUpdate(updatedRecord);
-      console.log('onUpdate callback executed successfully');
-
-      console.log('Closing modal...');
-      onClose();
-
-      toast({
-        title: "更新しました",
-        description: "記録を更新しました",
+      // DB更新成功後、旧ファイルを削除
+      console.log('Checking for old image deletion:', {
+        originalPath: originalPathRef.current,
+        finalPhotoPath,
+        newImageUploaded,
+        shouldDelete: originalPathRef.current && 
+                     originalPathRef.current !== finalPhotoPath && 
+                     newImageUploaded
       });
-      console.log('=== EditRecordModal handleSave completed successfully ===');
+
+      if (
+        originalPathRef.current &&
+        originalPathRef.current !== finalPhotoPath &&
+        newImageUploaded
+      ) {
+        try {
+          console.log('Deleting old image:', originalPathRef.current);
+          await deleteImage(supabase, originalPathRef.current);
+          console.log('Old image deleted successfully');
+          toast({
+            title: "更新しました",
+            description: "記録を更新し、古い画像を削除しました",
+          });
+        } catch (error) {
+          console.error("Failed to delete old image:", error);
+          toast({
+            title: "警告",
+            description: "記録は更新されましたが、古い画像の削除に失敗しました",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "更新しました",
+          description: "記録を更新しました",
+        });
+      }
+
+      onUpdate(updatedRecord);
+      onClose();
     } catch (error) {
-      console.error("=== EditRecordModal handleSave failed ===", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error("Failed to update record:", error);
+      
+      // DB更新失敗時、新しくアップロードした画像を削除
+      if (selectedFile && photoPath && photoPath !== originalPathRef.current) {
+        try {
+          console.log('Rolling back uploaded image due to DB update failure:', photoPath);
+          await deleteImage(supabase, photoPath);
+          console.log('Rollback image deleted successfully');
+        } catch (rollbackError) {
+          console.error("Failed to rollback uploaded image:", rollbackError);
+        }
+      }
+
       toast({
-        title: "エラー",
-        description: `記録の更新に失敗しました: ${errorMessage}`,
+        title: "更新エラー",
+        description: "記録の更新に失敗しました",
         variant: "destructive",
       });
     }
@@ -266,7 +307,16 @@ export function EditRecordModal({
     const file = e.target.files?.[0];
     if (!file || !userId || !supabase) return;
 
-    console.log('File selected:', file.name);
+    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "エラー",
+        description: "画像ファイルを選択してください",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // 既存のプレビューURLをクリーンアップ
     if (previewUrl) {
@@ -279,6 +329,7 @@ export function EditRecordModal({
       setPreviewUrl(signedUrl);  // その場プレビュー用
       setSelectedFile(file);
       console.log('Preview URL created:', signedUrl);
+      console.log('New image uploaded');
     } catch (error) {
       console.error("Failed to upload image:", error);
       toast({
@@ -290,6 +341,13 @@ export function EditRecordModal({
   };
 
   const handleRemovePhoto = () => {
+    // 新規アップロードした画像をSupabase Storageから削除
+    if (selectedFile && photoPath && photoPath !== originalPathRef.current && supabase) {
+      deleteImage(supabase, photoPath).catch(error => {
+        console.error("Failed to delete uploaded image:", error);
+      });
+    }
+
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -364,28 +422,40 @@ export function EditRecordModal({
     }
 
     if (photoPath || previewUrl || existingImageUrl) {
-      return (
-        <div className="space-y-2">
-          <Label>写真{previewUrl && " (プレビュー)"}</Label>
-          <div className="relative w-full h-48">
-            <Image
-              src={previewUrl || existingImageUrl || ""}
-              alt="記録の写真"
-              fill
-              className="object-cover rounded-lg"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-2 right-2"
-              onClick={handleRemovePhoto}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      const imageUrl = previewUrl || existingImageUrl;
+      
+      // 有効なURLがある場合のみImageコンポーネントを表示
+      if (imageUrl) {
+        return (
+          <div className="space-y-2">
+            <Label>写真{previewUrl && " (プレビュー)"}</Label>
+            <div className="relative w-full h-48 cursor-pointer" 
+                 onClick={() => setExpandedImage({
+                   url: imageUrl,
+                   alt: "記録の写真"
+                 })}>
+              <Image
+                src={imageUrl}
+                alt="記録の写真"
+                fill
+                className="object-cover rounded-lg"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2 z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemovePhoto();
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     }
 
     return null;
@@ -461,6 +531,34 @@ export function EditRecordModal({
           </div>
         </div>
       </DialogContent>
+
+      {/* 画像拡大表示モーダル */}
+      {expandedImage && (
+        <Dialog open={Boolean(expandedImage)} onOpenChange={() => setExpandedImage(null)}>
+          <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden bg-transparent border-none shadow-none">
+            <div className="relative w-full h-full">
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white border-white/20"
+                onClick={() => setExpandedImage(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="w-full h-full flex items-center justify-center">
+                <Image
+                  src={expandedImage.url}
+                  alt={expandedImage.alt}
+                  width={800}
+                  height={600}
+                  className="max-w-full max-h-full object-contain"
+                  sizes="(max-width: 768px) 90vw, (max-width: 1200px) 80vw, 70vw"
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

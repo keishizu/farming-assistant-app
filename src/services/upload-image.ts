@@ -70,4 +70,21 @@ export async function getSignedImageUrl(
     .from("clerk-uploads")
     .createSignedUrl(path, EXPIRES_IN);
   return data?.signedUrl ?? "";
+}
+
+// 画像削除ヘルパー
+export async function deleteImage(
+  supabase: SupabaseClient,
+  path: string
+): Promise<void> {
+  if (!path) return;
+  
+  const { error } = await supabase.storage
+    .from("clerk-uploads")
+    .remove([path]);
+    
+  if (error) {
+    console.error("Failed to delete image:", error);
+    throw new Error(`画像の削除に失敗しました: ${error.message}`);
+  }
 } 

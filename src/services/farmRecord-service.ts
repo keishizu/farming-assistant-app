@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { FarmRecord, NewFarmRecord } from "@/types/farm";
 import { v4 as uuidv4 } from "uuid";
+import { deleteImage } from "./upload-image";
 
 // 🔽 全レコード取得（ログイン中ユーザーの分だけ）
 export const getFarmRecords = async (
@@ -176,6 +177,19 @@ export const deleteFarmRecord = async (
 ): Promise<boolean> => {
   if (!userId) throw new Error("User not authenticated");
 
+  // 削除前にレコード情報を取得（画像パスを取得するため）
+  const { data: recordData, error: fetchError } = await supabase
+    .from("farm_records")
+    .select("photo_path")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116はレコードが見つからないエラー
+    throw new Error(`Failed to fetch record for deletion: ${fetchError.message}`);
+  }
+
+  // レコードを削除
   const { error } = await supabase
     .from("farm_records")
     .delete()
@@ -183,5 +197,19 @@ export const deleteFarmRecord = async (
     .eq("user_id", userId);
 
   if (error) throw new Error(`Failed to delete record: ${error.message}`);
+
+  // 画像ファイルがある場合は削除
+  if (recordData?.photo_path) {
+    try {
+      console.log('Deleting associated image:', recordData.photo_path);
+      await deleteImage(supabase, recordData.photo_path);
+      console.log('Associated image deleted successfully');
+    } catch (imageError) {
+      console.error("Failed to delete associated image:", imageError);
+      // 画像削除に失敗してもレコード削除は成功とする（警告のみ）
+      // 必要に応じて手動で削除してもらう
+    }
+  }
+
   return true;
 };

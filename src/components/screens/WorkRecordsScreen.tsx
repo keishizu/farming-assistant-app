@@ -120,26 +120,9 @@ export default function HomeScreen() {
       return;
     }
 
-    let finalPhotoPath = photoPath;
-
-    // 新しいファイルが選択されている場合はアップロード
-    if (selectedFile) {
-      try {
-        if (!supabase) {
-          throw new Error("Supabase client not initialized");
-        }
-        const { path } = await uploadImage(selectedFile, supabase, userId);
-        finalPhotoPath = path;
-      } catch (error) {
-        console.error("Failed to upload image:", error);
-        toast({
-          title: "アップロードエラー",
-          description: "画像のアップロードに失敗しました",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
+    // selectedFileは既にhandlePhotoSelectでアップロード済みなので、
+    // photoPathをそのまま使用する
+    const finalPhotoPath = photoPath;
 
     const record: NewFarmRecord = {
       userId,
@@ -333,12 +316,20 @@ export default function HomeScreen() {
             </div>
             {(photoPath || previewUrl) && (
               <div className="relative w-full h-48 mt-2">
-                <Image
-                  src={previewUrl || ""}
-                  alt="作業写真"
-                  fill
-                  className="object-cover rounded-lg"
-                />
+                {previewUrl ? (
+                  <Image
+                    src={previewUrl}
+                    alt="作業写真"
+                    fill
+                    className="object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <p className="text-sm">画像を読み込み中...</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
