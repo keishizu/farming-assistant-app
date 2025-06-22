@@ -113,6 +113,38 @@ export default function CalendarScreen() {
     setTasks(updatedTasks);
   }, []);
 
+  const handleRecordsUpdate = useCallback(async (updatedRecords: FarmRecord[]) => {
+    console.log('=== CalendarScreen handleRecordsUpdate started ===');
+    console.log('Received updatedRecords:', updatedRecords);
+    console.log('Current records state:', records);
+    
+    // ローカル状態を更新
+    console.log('Updating local state with:', updatedRecords);
+    setRecords(updatedRecords);
+    console.log('Local state updated');
+    
+    // データベースから最新のデータを再取得
+    try {
+      if (userId && supabase) {
+        console.log('Refreshing data from database...');
+        const freshRecords = await getFarmRecords(supabase, userId);
+        console.log('Fresh records from database:', freshRecords);
+        setRecords(freshRecords);
+        console.log('State updated with fresh records');
+      } else {
+        console.log('Missing userId or supabase client for refresh');
+      }
+    } catch (error) {
+      console.error('Failed to refresh records:', error);
+      toast({
+        title: "警告",
+        description: "データの更新に失敗しました",
+        variant: "destructive",
+      });
+    }
+    console.log('=== CalendarScreen handleRecordsUpdate completed ===');
+  }, [userId, supabase, toast, records]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -148,7 +180,7 @@ export default function CalendarScreen() {
             <motion.div variants={item}>
               <Card className="p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">実績カレンダー</h2>
-                <RecordCalendar records={records} onUpdate={setRecords} />
+                <RecordCalendar records={records} onUpdate={handleRecordsUpdate} />
               </Card>
             </motion.div>
           </div>

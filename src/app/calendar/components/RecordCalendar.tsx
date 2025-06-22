@@ -42,6 +42,7 @@ import { deleteFarmRecord } from "@/services/farmRecord-service";
 import { CustomCrop } from "@/types/crop";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
+import { getSignedImageUrl } from "@/services/upload-image";
 
 interface RecordCalendarProps {
   records: FarmRecord[];
@@ -58,6 +59,8 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const { toast } = useToast();
   const [customCrops, setCustomCrops] = useState<CustomCrop[]>([]);
   const [smartCrops, setSmartCrops] = useState<CustomCrop[]>([]);
+  const [cropColors, setCropColors] = useState<Record<string, string>>({});
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchCrops = async () => {
@@ -111,19 +114,23 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
 
   const handleUpdateRecord = (updatedRecord: FarmRecord) => {
     if (onUpdate) {
-      onUpdate(
-        records.map((record) =>
-          record.id === updatedRecord.id ? updatedRecord : record
-        )
+      const updatedRecords = records.map((record) =>
+        record.id === updatedRecord.id ? updatedRecord : record
       );
+      onUpdate(updatedRecords);
     }
+    setEditingRecord(null);
+    toast({
+      title: "更新しました",
+      description: "作業実績を更新しました",
+    });
   };
 
   const handleDeleteRecord = async (record: FarmRecord) => {
-    if (!isLoaded || !userId || !supabase) {
+    if (!userId || !supabase) {
       toast({
         title: "エラー",
-        description: "認証が必要です",
+        description: "認証情報が不足しています",
         variant: "destructive",
       });
       return;
@@ -150,6 +157,27 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
       }
     }
   };
+
+  // 画像URLを取得する関数
+  const getImageUrl = async (photoPath: string) => {
+    if (!supabase) return "";
+    
+    try {
+      const url = await getSignedImageUrl(supabase, photoPath);
+      setImageUrls(prev => ({ ...prev, [photoPath]: url }));
+      return url;
+    } catch (error) {
+      console.error("Failed to get signed URL:", error);
+      return "";
+    }
+  };
+
+  // 選択されたレコードの画像URLを取得
+  useEffect(() => {
+    if (selectedRecord?.photoPath && !imageUrls[selectedRecord.photoPath]) {
+      getImageUrl(selectedRecord.photoPath);
+    }
+  }, [selectedRecord, imageUrls]);
 
   return (
     <div className="w-full">
@@ -272,14 +300,16 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
                   <div className="whitespace-pre-wrap">{selectedRecord.memo}</div>
                 </div>
               )}
-              {selectedRecord.photoUrl && (
+              {selectedRecord.photoPath && (
                 <div>
                   <div className="font-medium">写真</div>
                   <div className="relative w-full h-48 mt-2">
-                    <img
-                      src={selectedRecord.photoUrl}
+                    <Image
+                      src={imageUrls[selectedRecord.photoPath] || ""}
                       alt="記録の写真"
-                      className="object-cover w-full h-full rounded-lg"
+                      fill
+                      className="object-cover rounded-lg"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
                   </div>
                 </div>

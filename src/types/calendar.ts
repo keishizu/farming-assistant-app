@@ -18,7 +18,7 @@ export interface Record {
   taskName: string;
   date: Date;
   memo?: string;
-  photoUrl?: string;
+  photoPath?: string;
 }
 
 export interface ScheduleCalendarProps {

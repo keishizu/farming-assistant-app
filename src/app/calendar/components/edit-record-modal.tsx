@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, X } from "lucide-react";
+import { Camera, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { updateFarmRecord } from "@/services/farmRecord-service";
 import { FarmRecord } from "@/types/farm";
@@ -27,6 +27,8 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
+import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EditRecordModalProps {
   isOpen: boolean;
@@ -46,7 +48,12 @@ export function EditRecordModal({
   const [cropName, setCropName] = useState(record.crop);
   const [taskName, setTaskName] = useState(record.task);
   const [memo, setMemo] = useState(record.memo || "");
-  const [photoUrl, setPhotoUrl] = useState(record.photoUrl || "");
+  const [photoPath, setPhotoPath] = useState(record.photoPath || "");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [isLoadingExistingImage, setIsLoadingExistingImage] = useState(false);
+  const [existingImageError, setExistingImageError] = useState<string | null>(null);
   const [cropNames, setCropNames] = useState<string[]>([]);
   const { toast } = useToast();
 
@@ -78,13 +85,123 @@ export function EditRecordModal({
     fetchCropNames();
   }, [userId, supabase, getToken, toast]);
 
+  // モーダルが開かれた時に状態を初期化
+  useEffect(() => {
+    if (isOpen) {
+      setCropName(record.crop);
+      setTaskName(record.task);
+      setMemo(record.memo || "");
+      setPhotoPath(record.photoPath || "");
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setExistingImageUrl(null);
+      setExistingImageError(null);
+      
+      // 既存画像がある場合は署名付きURLを取得
+      if (record.photoPath && supabase) {
+        setIsLoadingExistingImage(true);
+        setExistingImageError(null);
+        
+        getSignedImageUrl(supabase, record.photoPath)
+          .then(url => {
+            if (url) {
+              setExistingImageUrl(url);
+            } else {
+              setExistingImageError("画像の取得に失敗しました");
+            }
+          })
+          .catch(error => {
+            console.error("Failed to get existing image URL:", error);
+            setExistingImageError("画像の読み込みに失敗しました");
+          })
+          .finally(() => {
+            setIsLoadingExistingImage(false);
+          });
+      } else {
+        setIsLoadingExistingImage(false);
+      }
+    }
+  }, [isOpen, record, supabase]);
+
+  // モーダルが閉じられた時にプレビューURLをクリーンアップ
+  useEffect(() => {
+    if (!isOpen) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      setSelectedFile(null);
+      setExistingImageUrl(null);
+      setIsLoadingExistingImage(false);
+      setExistingImageError(null);
+    }
+  }, [isOpen, previewUrl]);
+
   const handleSave = async () => {
-    if (!userId || !supabase) return;
+    console.log('=== EditRecordModal handleSave started ===');
+    console.log('Current state:', {
+      cropName,
+      taskName,
+      memo,
+      photoPath,
+      previewUrl,
+      selectedFile: selectedFile ? { name: selectedFile.name, size: selectedFile.size } : null,
+      record
+    });
+
+    if (!cropName || !taskName) {
+      console.log('Validation failed: missing cropName or taskName');
+      toast({
+        title: "エラー",
+        description: "作物名と作業名は必須です",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!userId || !supabase) {
+      console.log('Validation failed: missing userId or supabase client');
+      toast({
+        title: "エラー",
+        description: "認証情報が不足しています",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
+      console.log('Getting session token...');
       const token = await getToken({ template: "supabase" });
+      console.log('Session token obtained:', token ? 'present' : 'missing');
+
       if (!token) {
-        throw new Error("認証トークンの取得に失敗しました");
+        console.log('Validation failed: missing token');
+        toast({
+          title: "エラー",
+          description: "認証トークンの取得に失敗しました",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let finalPhotoPath = photoPath;
+
+      if (selectedFile) {
+        console.log('Processing new image upload...');
+        try {
+          console.log('Uploading image:', selectedFile.name, 'Size:', selectedFile.size);
+          const { path } = await uploadImage(selectedFile, supabase, userId);
+          console.log('Image uploaded successfully:', path);
+          finalPhotoPath = path;
+        } catch (error) {
+          console.error("Failed to upload image:", error);
+          toast({
+            title: "エラー",
+            description: `画像のアップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       const updatedRecord: FarmRecord = {
@@ -92,10 +209,22 @@ export function EditRecordModal({
         crop: cropName,
         task: taskName,
         memo: memo || undefined,
-        photoUrl: photoUrl || undefined,
+        photoPath: finalPhotoPath || undefined,
       };
 
-      await updateFarmRecord(
+      console.log('Preparing to update record in database:', {
+        id: record.id,
+        userId: userId,
+        updateData: {
+          crop: cropName,
+          task: taskName,
+          memo: memo || undefined,
+          photoPath: finalPhotoPath || undefined,
+        }
+      });
+
+      console.log('Calling updateFarmRecord...');
+      const updateResult = await updateFarmRecord(
         supabase,
         userId,
         token,
@@ -104,30 +233,167 @@ export function EditRecordModal({
           crop: cropName,
           task: taskName,
           memo: memo || undefined,
-          photoUrl: photoUrl || undefined,
+          photoPath: finalPhotoPath || undefined,
         }
       );
 
+      console.log('Record updated in database successfully:', updateResult);
+
+      console.log('Calling onUpdate callback with:', updatedRecord);
       await onUpdate(updatedRecord);
+      console.log('onUpdate callback executed successfully');
+
+      console.log('Closing modal...');
       onClose();
 
       toast({
         title: "更新しました",
         description: "記録を更新しました",
       });
+      console.log('=== EditRecordModal handleSave completed successfully ===');
     } catch (error) {
-      console.error("Failed to update record:", error);
+      console.error("=== EditRecordModal handleSave failed ===", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
         title: "エラー",
-        description: "記録の更新に失敗しました",
+        description: `記録の更新に失敗しました: ${errorMessage}`,
         variant: "destructive",
       });
     }
   };
 
+  const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId || !supabase) return;
+
+    console.log('File selected:', file.name);
+
+    // 既存のプレビューURLをクリーンアップ
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    try {
+      const { path, signedUrl } = await uploadImage(file, supabase, userId);
+      setPhotoPath(path);        // DB 用
+      setPreviewUrl(signedUrl);  // その場プレビュー用
+      setSelectedFile(file);
+      console.log('Preview URL created:', signedUrl);
+    } catch (error) {
+      console.error("Failed to upload image:", error);
+      toast({
+        title: "エラー",
+        description: `画像のアップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setSelectedFile(null);
+    }
+    setPhotoPath("");
+    setExistingImageUrl(null);
+    setExistingImageError(null);
+    setIsLoadingExistingImage(false);
+    // ファイル入力をリセット
+    const fileInput = document.getElementById('photo') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // 画像表示コンポーネント
+  const renderImageSection = () => {
+    if (isLoadingExistingImage) {
+      return (
+        <div className="space-y-2">
+          <Label>写真 (読み込み中...)</Label>
+          <div className="relative w-full h-48">
+            <Skeleton className="w-full h-full rounded-lg" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (existingImageError) {
+      return (
+        <div className="space-y-2">
+          <Label>写真</Label>
+          <div className="relative w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <p className="text-sm">画像の読み込みに失敗しました</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  if (record.photoPath && supabase) {
+                    setIsLoadingExistingImage(true);
+                    setExistingImageError(null);
+                    getSignedImageUrl(supabase, record.photoPath)
+                      .then(url => {
+                        if (url) {
+                          setExistingImageUrl(url);
+                        } else {
+                          setExistingImageError("画像の取得に失敗しました");
+                        }
+                      })
+                      .catch(error => {
+                        console.error("Failed to get existing image URL:", error);
+                        setExistingImageError("画像の読み込みに失敗しました");
+                      })
+                      .finally(() => {
+                        setIsLoadingExistingImage(false);
+                      });
+                  }
+                }}
+              >
+                再試行
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (photoPath || previewUrl || existingImageUrl) {
+      return (
+        <div className="space-y-2">
+          <Label>写真{previewUrl && " (プレビュー)"}</Label>
+          <div className="relative w-full h-48">
+            <Image
+              src={previewUrl || existingImageUrl || ""}
+              alt="記録の写真"
+              fill
+              className="object-cover rounded-lg"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2"
+              onClick={handleRemovePhoto}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-md sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>記録を編集</DialogTitle>
         </DialogHeader>
@@ -141,7 +407,7 @@ export function EditRecordModal({
               </SelectTrigger>
               <SelectContent>
                 {cropNames.length === 0 ? (
-                  <SelectItem value="" disabled>
+                  <SelectItem value="no-crops" disabled>
                     作物がありません
                   </SelectItem>
                 ) : (
@@ -175,27 +441,17 @@ export function EditRecordModal({
             />
           </div>
 
-          {photoUrl && (
-            <div className="space-y-2">
-              <Label>写真</Label>
-              <div className="relative w-full h-48">
-                <Image
-                  src={photoUrl}
-                  alt="記録の写真"
-                  fill
-                  className="object-cover rounded-lg"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => setPhotoUrl("")}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="photo">写真</Label>
+            <Input
+              id="photo"
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoSelect}
+            />
+          </div>
+
+          {renderImageSection()}
 
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={onClose}>

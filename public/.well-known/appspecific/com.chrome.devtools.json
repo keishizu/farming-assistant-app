@@ -1,0 +1,8 @@
+{
+  "name": "Farming Assistant App",
+  "description": "農作業管理アプリケーション",
+  "version": "1.0.0",
+  "devtools": {
+    "enabled": true
+  }
+} 

@@ -5,7 +5,7 @@ export interface FarmRecord {
   crop: string;
   task: string;
   memo?: string;
-  photoUrl?: string;
+  photoPath?: string;
   createdAt: string;
 }
 

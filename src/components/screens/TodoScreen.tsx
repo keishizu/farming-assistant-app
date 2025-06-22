@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Task } from "@/types/calendar";
 import { getTasksForDate } from "@/services/schedule-service";
 import { useAuth } from "@clerk/nextjs";
-import { getCompletedTasks } from "@/services/task-storage";
+import { getCompletedTasks, saveCompletedTasks as saveTasksToSupabase } from "@/services/task-service";
 import { useSupabaseWithAuth } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,12 +24,6 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0 },
-};
-
-// ✅ 完了状態を localStorage で管理
-const saveCompletedTasks = (completed: Record<string, boolean>) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("completed_tasks", JSON.stringify(completed));
 };
 
 export default function TodoScreen() {
@@ -59,6 +53,7 @@ export default function TodoScreen() {
         today.setHours(0, 0, 0, 0);
 
         const todayTasks = await getTasksForDate(supabase, userId, today, token);
+        const completedMap = await getCompletedTasks(supabase, userId);
 
         const groupedTasks = todayTasks.reduce((acc, task) => {
           if (!acc[task.cropName]) acc[task.cropName] = [];
@@ -72,7 +67,6 @@ export default function TodoScreen() {
 
         setOriginalOrder(sortedTasks.map(task => task.id));
 
-        const completedMap = getCompletedTasks();
         const withStatus = sortedTasks.map(task => ({
           ...task,
           completed: completedMap[task.id] || false,
@@ -99,7 +93,7 @@ export default function TodoScreen() {
     loadTasks();
   }, [userId, isSignedIn, supabase, getToken, toast]);
 
-  const handleTaskComplete = (taskId: string) => {
+  const handleTaskComplete = async (taskId: string) => {
     setTasks(prev => {
       const updated = prev.map(task =>
         task.id === taskId ? { ...task, completed: !task.completed } : task
@@ -118,7 +112,9 @@ export default function TodoScreen() {
         return acc;
       }, {} as Record<string, boolean>);
 
-      saveCompletedTasks(completedMap);
+      if (userId && supabase) {
+        saveTasksToSupabase(supabase, userId, completedMap);
+      }
       return sorted;
     });
   };

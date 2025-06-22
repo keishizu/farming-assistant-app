@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
+import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
 
 export default function HomeScreen() {
   const { userId, getToken } = useAuth();
@@ -36,7 +37,9 @@ export default function HomeScreen() {
   const [task, setTask] = useState("");
   const [memo, setMemo] = useState("");
   const [date, setDate] = useState<Date>(new Date());
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cropNames, setCropNames] = useState<string[]>([]);
   const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>([]);
   const { toast } = useToast();
@@ -81,6 +84,15 @@ export default function HomeScreen() {
     fetchTaskTypes();
   }, [userId, crop, task, getToken]);
 
+  // コンポーネントのアンマウント時にプレビューURLをクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleCropChange = (value: string) => {
     setCrop(value);
     setTask("");
@@ -108,13 +120,34 @@ export default function HomeScreen() {
       return;
     }
 
+    let finalPhotoPath = photoPath;
+
+    // 新しいファイルが選択されている場合はアップロード
+    if (selectedFile) {
+      try {
+        if (!supabase) {
+          throw new Error("Supabase client not initialized");
+        }
+        const { path } = await uploadImage(selectedFile, supabase, userId);
+        finalPhotoPath = path;
+      } catch (error) {
+        console.error("Failed to upload image:", error);
+        toast({
+          title: "アップロードエラー",
+          description: "画像のアップロードに失敗しました",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const record: NewFarmRecord = {
       userId,
       date: format(date, "yyyy-MM-dd"),
       crop,
       task,
       memo: memo || undefined,
-      photoUrl: photoUrl || undefined,
+      photoPath: finalPhotoPath || undefined,
     };
 
     try {
@@ -130,7 +163,12 @@ export default function HomeScreen() {
       setCrop("");
       setTask("");
       setMemo("");
-      setPhotoUrl("");
+      setPhotoPath("");
+      setSelectedFile(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
       setDate(new Date());
       router.refresh();
     } catch (error) {
@@ -143,9 +181,11 @@ export default function HomeScreen() {
     }
   };
 
-  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !userId || !supabase) return;
+
+    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     if (!file.type.startsWith("image/")) {
       toast({
@@ -156,12 +196,41 @@ export default function HomeScreen() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64String = e.target?.result as string;
-      setPhotoUrl(base64String);
-    };
-    reader.readAsDataURL(file);
+    // 既存のプレビューURLをクリーンアップ
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      console.log('Previous preview URL cleaned up');
+    }
+
+    try {
+      const { path, signedUrl } = await uploadImage(file, supabase, userId);
+      setPhotoPath(path);        // DB 用
+      setPreviewUrl(signedUrl);  // その場プレビュー用
+      setSelectedFile(file);
+      console.log('Preview URL created:', signedUrl);
+    } catch (error) {
+      console.error("Failed to upload image:", error);
+      toast({
+        title: "エラー",
+        description: `画像のアップロードに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    setSelectedFile(null);
+    setPhotoPath("");
+    
+    // ファイル入力をリセット
+    const fileInput = document.getElementById('photo') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   return (
@@ -251,21 +320,21 @@ export default function HomeScreen() {
                 <Camera className="w-5 h-5" />
                 <span>写真を選択</span>
               </label>
-              {photoUrl && (
+              {(photoPath || previewUrl) && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setPhotoUrl(null)}
+                  onClick={handleRemovePhoto}
                 >
                   <X className="w-5 h-5" />
                 </Button>
               )}
             </div>
-            {photoUrl && (
+            {(photoPath || previewUrl) && (
               <div className="relative w-full h-48 mt-2">
                 <Image
-                  src={photoUrl}
+                  src={previewUrl || ""}
                   alt="作業写真"
                   fill
                   className="object-cover rounded-lg"

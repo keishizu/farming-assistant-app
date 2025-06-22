@@ -10,7 +10,7 @@ export default function Navigation() {
   const pathname = usePathname();
 
   const links = [
-    { href: "/", icon: Home, label: "ホーム" },
+    { href: "/", icon: Home, label: "作業記録" },
     { href: "/calendar", icon: Calendar, label: "カレンダー" },
     { href: "/todo", icon: CheckSquare, label: "タスク" },
     { href: "/crop-schedule", icon: Sprout, label: "カスタム" },

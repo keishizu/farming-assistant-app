@@ -8,7 +8,7 @@ import { AddCropModal } from "@/app/crop-schedule/components/add-crop-modal";
 import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { getCustomCrops, saveCustomCrop } from "@/services/customCrop-service";
+import { getCustomCrops, saveCustomCrop, deleteCustomCrop } from "@/services/customCrop-service";
 import { useSession } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -93,8 +93,23 @@ export default function CropScheduleScreen() {
     ));
   };
 
-  const handleDeleteCrop = (cropId: string) => {
-    setCrops(prevCrops => prevCrops.filter(crop => crop.id !== cropId));
+  const handleDeleteCrop = async (cropId: string) => {
+    if (!session?.user?.id || !supabase) return;
+
+    try {
+      await deleteCustomCrop(supabase, session.user.id, cropId);
+      setCrops(prevCrops => prevCrops.filter(crop => crop.id !== cropId));
+      toast({
+         description: "作物を削除しました",
+      });
+    } catch (error) {
+      console.error("作物の削除に失敗しました:", error);
+      toast({
+        title: "エラー",
+        description: "作物の削除に失敗しました",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!isSessionLoaded || !supabase) {
