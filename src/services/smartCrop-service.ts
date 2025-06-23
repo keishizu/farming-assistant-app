@@ -5,32 +5,39 @@ import { CustomCrop } from "@/types/crop";
 export const getSmartCrops = async (supabase: SupabaseClient, userId: string): Promise<CustomCrop[]> => {
   if (!userId) throw new Error("User not authenticated");
 
-  console.log("Fetching smart crops for user:", userId);
-  console.log("Using supabase client:", supabase);
-  
-  const { data, error } = await supabase
-    .from("smart_crops")
-    .select("*")
-    .eq("user_id", userId);
+  // console.log("Fetching smart crops for user:", userId);
+  // console.log("Using supabase client:", supabase);
 
-  if (error) {
-    console.error("Error fetching smart crops:", error);
-    throw new Error(`Failed to fetch smart crops: ${error.message}`);
+  try {
+    const { data, error } = await supabase
+      .from("smart_crops")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .throwOnError();
+
+    if (error) {
+      console.error("Error fetching smart crops:", error);
+      throw error;
+    }
+
+    // console.log("Raw data from smart_crops:", data);
+    // console.log("Data type:", typeof data);
+    // console.log("Is array:", Array.isArray(data));
+
+    const mappedData = data?.map(crop => ({
+      ...crop,
+      name: crop.crop_type,
+      startDate: crop.start_date, // ISO 8601 string
+      tasks: crop.tasks || [],
+    })) || [];
+
+    // console.log("Mapped smart crops:", mappedData);
+    return mappedData;
+  } catch (error) {
+    console.error("Error in getSmartCrops:", error);
+    throw error;
   }
-
-  console.log("Raw data from smart_crops:", data);
-  console.log("Data type:", typeof data);
-  console.log("Is array:", Array.isArray(data));
-
-  const mappedData = data?.map((crop) => ({
-    ...crop,
-    name: crop.crop_type,
-    startDate: new Date(crop.start_date),
-    tasks: crop.tasks || [],
-  })) ?? [];
-
-  console.log("Mapped smart crops:", mappedData);
-  return mappedData;
 };
 
 // 🔽 スマート作物を保存（全削除 → 一括保存の上書き方式）
@@ -38,8 +45,8 @@ export const saveSmartCrops = async (supabase: SupabaseClient, userId: string, c
   if (!userId) throw new Error("User not authenticated");
 
   try {
-    console.log("Saving crops for user:", userId);
-    console.log("Crops to save:", crops);
+    // console.log("Saving crops for user:", userId);
+    // console.log("Crops to save:", crops);
 
     // 既存のデータを全削除
     const { error: deleteError } = await supabase
@@ -57,7 +64,7 @@ export const saveSmartCrops = async (supabase: SupabaseClient, userId: string, c
       id: crop.id,
       user_id: userId,
       crop_type: crop.name,
-      start_date: crop.startDate.toISOString().split("T")[0],
+      start_date: crop.startDate, // ISO 8601 string
       memo: crop.memo ?? "",
       tasks: crop.tasks,
       color: crop.color,
@@ -93,7 +100,7 @@ export const updateSmartCrop = async (
     .update({
       ...data,
       crop_type: data.name,
-      start_date: data.startDate?.toISOString().split("T")[0],
+      start_date: data.startDate, // ISO 8601 string
     })
     .eq("id", id)
     .eq("user_id", userId);

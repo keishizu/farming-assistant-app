@@ -104,10 +104,10 @@ export function EditRecordModal({
       // 初期パスを更新
       originalPathRef.current = record.photoPath || null;
       
-      console.log('Modal opened with record:', {
-        recordPhotoPath: record.photoPath,
-        originalPathRef: originalPathRef.current
-      });
+      // console.log('Modal opened with record:', {
+      //   recordPhotoPath: record.photoPath,
+      //   originalPathRef: originalPathRef.current
+      // });
       
       // 既存画像がある場合は署名付きURLを取得
       if (record.photoPath && supabase) {
@@ -150,20 +150,20 @@ export function EditRecordModal({
   }, [isOpen, previewUrl]);
 
   const handleSave = async () => {
-    console.log('=== EditRecordModal handleSave started ===');
-    console.log('Current state:', {
-      cropName,
-      taskName,
-      memo,
-      photoPath,
-      previewUrl,
-      selectedFile: selectedFile ? { name: selectedFile.name, size: selectedFile.size } : null,
-      record,
-      originalPath: originalPathRef.current
-    });
+    // console.log('=== EditRecordModal handleSave started ===');
+    // console.log('Current state:', {
+    //   cropName,
+    //   taskName,
+    //   memo,
+    //   photoPath,
+    //   previewUrl,
+    //   selectedFile: selectedFile ? { name: selectedFile.name, size: selectedFile.size } : null,
+    //   record,
+    //   originalPath: originalPathRef.current
+    // });
 
     if (!cropName || !taskName) {
-      console.log('Validation failed: missing cropName or taskName');
+      // console.log('Validation failed: missing cropName or taskName');
       toast({
         title: "エラー",
         description: "作物名と作業名は必須です",
@@ -173,7 +173,7 @@ export function EditRecordModal({
     }
 
     if (!userId || !supabase) {
-      console.log('Validation failed: missing userId or supabase client');
+      // console.log('Validation failed: missing userId or supabase client');
       toast({
         title: "エラー",
         description: "認証情報が不足しています",
@@ -183,12 +183,12 @@ export function EditRecordModal({
     }
 
     try {
-      console.log('Getting session token...');
+      // console.log('Getting session token...');
       const token = await getToken({ template: "supabase" });
-      console.log('Session token obtained:', token ? 'present' : 'missing');
+      // console.log('Session token obtained:', token ? 'present' : 'missing');
 
       if (!token) {
-        console.log('Validation failed: missing token');
+        // console.log('Validation failed: missing token');
         toast({
           title: "エラー",
           description: "認証トークンの取得に失敗しました",
@@ -214,18 +214,18 @@ export function EditRecordModal({
         photoPath: finalPhotoPath || undefined,
       };
 
-      console.log('Preparing to update record in database:', {
-        id: record.id,
-        userId: userId,
-        updateData: {
-          crop: cropName,
-          task: taskName,
-          memo: memo || undefined,
-          photoPath: finalPhotoPath || undefined,
-        }
-      });
+      // console.log('Preparing to update record in database:', {
+      //   id: record.id,
+      //   userId: userId,
+      //   updateData: {
+      //     crop: cropName,
+      //     task: taskName,
+      //     memo: memo || undefined,
+      //     photoPath: finalPhotoPath || undefined,
+      //   }
+      // });
 
-      console.log('Calling updateFarmRecord...');
+      // console.log('Calling updateFarmRecord...');
       const updateResult = await updateFarmRecord(
         supabase,
         userId,
@@ -239,17 +239,17 @@ export function EditRecordModal({
         }
       );
 
-      console.log('Record updated in database successfully:', updateResult);
+      // console.log('Record updated in database successfully:', updateResult);
 
       // DB更新成功後、旧ファイルを削除
-      console.log('Checking for old image deletion:', {
-        originalPath: originalPathRef.current,
-        finalPhotoPath,
-        newImageUploaded,
-        shouldDelete: originalPathRef.current && 
-                     originalPathRef.current !== finalPhotoPath && 
-                     newImageUploaded
-      });
+      // console.log('Checking for old image deletion:', {
+      //   originalPath: originalPathRef.current,
+      //   finalPhotoPath,
+      //   newImageUploaded,
+      //   shouldDelete: originalPathRef.current && 
+      //                originalPathRef.current !== finalPhotoPath && 
+      //                newImageUploaded
+      // });
 
       if (
         originalPathRef.current &&
@@ -257,9 +257,9 @@ export function EditRecordModal({
         newImageUploaded
       ) {
         try {
-          console.log('Deleting old image:', originalPathRef.current);
+          // console.log('Deleting old image:', originalPathRef.current);
           await deleteImage(supabase, originalPathRef.current);
-          console.log('Old image deleted successfully');
+          // console.log('Old image deleted successfully');
           toast({
             title: "更新しました",
             description: "記録を更新し、古い画像を削除しました",
@@ -287,9 +287,9 @@ export function EditRecordModal({
       // DB更新失敗時、新しくアップロードした画像を削除
       if (selectedFile && photoPath && photoPath !== originalPathRef.current) {
         try {
-          console.log('Rolling back uploaded image due to DB update failure:', photoPath);
+          // console.log('Rolling back uploaded image due to DB update failure:', photoPath);
           await deleteImage(supabase, photoPath);
-          console.log('Rollback image deleted successfully');
+          // console.log('Rollback image deleted successfully');
         } catch (rollbackError) {
           console.error("Failed to rollback uploaded image:", rollbackError);
         }
@@ -307,7 +307,7 @@ export function EditRecordModal({
     const file = e.target.files?.[0];
     if (!file || !userId || !supabase) return;
 
-    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+    // console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     if (!file.type.startsWith("image/")) {
       toast({
@@ -328,8 +328,8 @@ export function EditRecordModal({
       setPhotoPath(path);        // DB 用
       setPreviewUrl(signedUrl);  // その場プレビュー用
       setSelectedFile(file);
-      console.log('Preview URL created:', signedUrl);
-      console.log('New image uploaded');
+      // console.log('Preview URL created:', signedUrl);
+      // console.log('New image uploaded');
     } catch (error) {
       console.error("Failed to upload image:", error);
       toast({

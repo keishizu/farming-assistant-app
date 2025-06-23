@@ -1,6 +1,7 @@
 export interface FarmRecord {
   id: string;
   userId: string;
+  cropId: string;
   date: string;
   crop: string;
   task: string;

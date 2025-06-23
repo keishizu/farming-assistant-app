@@ -34,7 +34,7 @@ const createCustomCrop = (
   return {
     id: uuidv4(),
     name: selectedCrop.name,
-    startDate: new Date(startDate),
+    startDate: startDate,
     memo: memo.trim() || undefined,
     tasks: tasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
     color: {

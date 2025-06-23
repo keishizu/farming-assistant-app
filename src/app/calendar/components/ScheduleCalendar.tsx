@@ -60,9 +60,8 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
     );
   };
 
-  const getCropColor = (cropName: string) => {
-    const task = tasks.find(t => t.cropName === cropName);
-    return task?.color || "bg-gray-100";
+  const getCropColor = (task: Task) => {
+    return task.color || "bg-gray-100";
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -84,7 +83,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
     }
 
     if (!supabase) {
-      console.log("Supabase client not initialized");
+      // console.log("Supabase client not initialized");
       return;
     }
 
@@ -99,6 +98,13 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
       });
       
       setSelectedTask(null);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!userId || !supabase) {
+      // console.log("Supabase client not initialized");
+      return;
     }
   };
 
@@ -158,7 +164,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
                   <>
                     {/* 最大1本まで帯表示 */}
                     {todayTasks.slice(0, MAX_TASKS_PER_DAY).map((task, index) => {
-                      const cropColor = getCropColor(task.cropName);
+                      const cropColor = getCropColor(task);
                       return (
                         <div
                           key={task.id}

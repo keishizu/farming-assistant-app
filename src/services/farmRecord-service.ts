@@ -22,6 +22,7 @@ export const getFarmRecords = async (
   return (data ?? []).map((record: any) => ({
     id: record.id,
     userId: record.user_id,
+    cropId: record.crop_id || "",
     date: record.date,
     crop: record.crop,
     task: record.task,
@@ -51,6 +52,7 @@ export const getFarmRecordsByDate = async (
   return (data ?? []).map((record: any) => ({
     id: record.id,
     userId: record.user_id,
+    cropId: record.crop_id || "",
     date: record.date,
     crop: record.crop,
     task: record.task,
@@ -83,6 +85,7 @@ export const getLatestFarmRecord = async (
   return {
     id: record.id,
     userId: record.user_id,
+    cropId: record.crop_id || "",
     date: record.date,
     crop: record.crop,
     task: record.task,
@@ -111,6 +114,7 @@ export const saveFarmRecord = async (
     {
       id: newRecord.id,
       user_id: newRecord.userId,
+      crop_id: newRecord.cropId,
       date: newRecord.date,
       crop: newRecord.crop,
       task: newRecord.task,
@@ -125,49 +129,58 @@ export const saveFarmRecord = async (
 };
 
 // 🔽 レコードを更新
-export const updateFarmRecord = async (
+export async function updateFarmRecord(
   supabase: SupabaseClient,
   userId: string,
-  token: string, // 🔐 将来のRLSチェック用途に含めて維持（現時点で未使用でもOK）
-  id: string,
-  data: Partial<NewFarmRecord>
-): Promise<boolean> => {
-  if (!userId) throw new Error("User not authenticated");
+  token: string,
+  recordId: string,
+  updateData: Partial<FarmRecord>
+): Promise<FarmRecord> {
+  // console.log('updateFarmRecord called with:', {
+  //   userId,
+  //   recordId,
+  //   updateData
+  // });
 
-  console.log('updateFarmRecord called with:', {
-    userId,
-    id,
-    data,
-    token: token ? 'present' : 'missing'
-  });
+  // データをSupabaseの形式に変換
+  const transformedData: any = {
+    crop_id: updateData.cropId,
+    crop: updateData.crop,
+    task: updateData.task,
+    memo: updateData.memo,
+    photo_path: updateData.photoPath,
+  };
 
-  // TypeScriptの型定義をデータベースのカラム名に変換
-  const updateData: any = {};
-  if (data.crop !== undefined) updateData.crop = data.crop;
-  if (data.task !== undefined) updateData.task = data.task;
-  if (data.memo !== undefined) updateData.memo = data.memo;
-  if (data.photoPath !== undefined) updateData.photo_path = data.photoPath;
-  if (data.date !== undefined) updateData.date = data.date;
-
-  console.log('Transformed update data:', updateData);
+  // console.log('Transformed update data:', transformedData);
 
   const { data: result, error } = await supabase
-    .from("farm_records")
-    .update(updateData)
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select();
+    .from('farm_records')
+    .update(transformedData)
+    .eq('id', recordId)
+    .eq('user_id', userId)
+    .select()
+    .single();
 
-  console.log('Supabase update result:', { result, error });
+  // console.log('Supabase update result:', { result, error });
 
   if (error) {
-    console.error('Supabase update error:', error);
     throw new Error(`Failed to update record: ${error.message}`);
   }
 
-  console.log('Record updated successfully:', result);
-  return true;
-};
+  // console.log('Record updated successfully:', result);
+
+  return {
+    id: result.id,
+    userId: result.user_id,
+    cropId: result.crop_id || "",
+    date: result.date,
+    crop: result.crop,
+    task: result.task,
+    memo: result.memo,
+    photoPath: result.photo_path,
+    createdAt: result.created_at,
+  };
+}
 
 // 🔽 レコードを削除
 export const deleteFarmRecord = async (
@@ -198,16 +211,14 @@ export const deleteFarmRecord = async (
 
   if (error) throw new Error(`Failed to delete record: ${error.message}`);
 
-  // 画像ファイルがある場合は削除
+  // 関連する画像があれば削除
   if (recordData?.photo_path) {
     try {
-      console.log('Deleting associated image:', recordData.photo_path);
+      // console.log('Deleting associated image:', recordData.photo_path);
       await deleteImage(supabase, recordData.photo_path);
-      console.log('Associated image deleted successfully');
-    } catch (imageError) {
-      console.error("Failed to delete associated image:", imageError);
-      // 画像削除に失敗してもレコード削除は成功とする（警告のみ）
-      // 必要に応じて手動で削除してもらう
+      // console.log('Associated image deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete associated image:', error);
     }
   }
 

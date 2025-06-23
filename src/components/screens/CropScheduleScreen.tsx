@@ -23,35 +23,37 @@ export default function CropScheduleScreen() {
 
   // マウント時にデータを読み込む
   useEffect(() => {
-    const loadCrops = async () => {
+    const fetchCrops = async () => {
       if (!isSessionLoaded) {
-        console.log("セッション読み込み中...");
+        // console.log("セッション読み込み中...");
         return;
       }
 
       if (!session?.user?.id) {
-        console.log("セッションIDがありません");
+        // console.log("セッションIDがありません");
         return;
       }
 
       if (!supabase) {
-        console.log("Supabaseクライアントが初期化されていません");
+        // console.log("Supabaseクライアントが初期化されていません");
         return;
       }
-      
+
       try {
         const token = await session.getToken({ template: "supabase" });
-        console.log("取得したトークン:", token ? "存在します" : "null");
+        // console.log("取得したトークン:", token ? "存在します" : "null");
+
         if (!token) {
           throw new Error("認証トークンの取得に失敗しました");
         }
-        console.log("作物データの取得を開始します");
+
+        // console.log("作物データの取得を開始します");
         const savedCrops = await getCustomCrops(supabase, session.user.id, token);
-        console.log("取得した作物データ:", savedCrops);
+        // console.log("取得した作物データ:", savedCrops);
         setCrops(savedCrops);
         setIsMounted(true);
       } catch (error) {
-        console.error("データの読み込みに失敗しました:", error);
+        console.error("作物データの取得に失敗しました:", error);
         toast({
           title: "エラー",
           description: "作物データの取得に失敗しました",
@@ -60,7 +62,7 @@ export default function CropScheduleScreen() {
       }
     };
 
-    loadCrops();
+    fetchCrops();
   }, [session?.user?.id, supabase, isSessionLoaded, toast]);
 
   // データが変更された時のみ保存

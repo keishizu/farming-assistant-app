@@ -11,10 +11,21 @@ export interface CropTask {
 export interface CustomCrop {
   id: string;
   name: string;
-  startDate: Date;
+  startDate: string; // ISO 8601
   memo?: string;
   tasks: CropTask[];
   color: CropColorOption;
+}
+
+export interface SmartCrop {
+  id: string;
+  userId: string;
+  cropType: string;        // 例: "sweet_potato"
+  startDate: string;       // ISO 8601
+  memo?: string;
+  color: CropColorOption;
+  tasks: CropTask[];
+  createdAt: string;
 }
 
 // イメージカラーの選択肢

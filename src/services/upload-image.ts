@@ -16,49 +16,30 @@ export async function uploadImage(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ path: string; signedUrl: string }> {
-  // ファイルサイズチェック
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error("ファイルサイズは6MB以下にしてください。");
-  }
-
-  // MIMEタイプチェック
-  if (!file.type.startsWith("image/")) {
-    throw new Error("画像ファイルのみアップロード可能です。");
-  }
-
-  // ファイル拡張子の取得
-  const extension = file.name.split(".").pop();
-  if (!extension) {
-    throw new Error("ファイル拡張子が見つかりません。");
-  }
-
-  // アップロードパスの生成（安定したUUIDを使用）
+  const fileExtension = file.name.split('.').pop();
   const stableUUID = generateStableUUIDFromClerkId(userId);
-  console.log('Stable UUID:', stableUUID);
-  const path = `${stableUUID}/${uuidv4()}.${extension}`;
+  const fileName = `${stableUUID}.${fileExtension}`;
+  const filePath = `${userId}/${fileName}`;
 
-  // ファイルのアップロード
-  const { error: uploadError } = await supabase.storage
-    .from("clerk-uploads")
-    .upload(path, file, {
-      cacheControl: "3600",
-      upsert: true
+  // console.log('Stable UUID:', stableUUID);
+
+  const { data, error } = await supabase.storage
+    .from('clerk-uploads')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
     });
 
-  if (uploadError) {
-    throw new Error(`アップロードに失敗しました: ${uploadError.message}`);
+  if (error) {
+    console.error('Upload error:', error);
+    throw new Error(`Failed to upload image: ${error.message}`);
   }
 
-  // 署名付きURLの生成
-  const { data, error: signedUrlError } = await supabase.storage
-    .from("clerk-uploads")
-    .createSignedUrl(path, EXPIRES_IN);
+  const { data: { publicUrl } } = supabase.storage
+    .from('clerk-uploads')
+    .getPublicUrl(filePath);
 
-  if (signedUrlError || !data?.signedUrl) {
-    throw new Error(`署名付きURLの生成に失敗しました: ${signedUrlError?.message}`);
-  }
-
-  return { path, signedUrl: data.signedUrl };
+  return { path: filePath, signedUrl: publicUrl };
 }
 
 // パス→署名付き URL を取るヘルパー

@@ -50,7 +50,7 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
     const updatedCrop: CustomCrop = {
       ...crop,
       name,
-      startDate: new Date(startDate),
+      startDate: startDate,
       memo: memo || undefined,
       tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
       color,

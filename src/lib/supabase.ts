@@ -42,17 +42,17 @@ function isTokenExpired(token: string): boolean {
     return true;
   }
   
-  console.log('Token expiry check:', {
-    currentTime: new Date(tokenInfo.currentTime * 1000).toISOString(),
-    expiryTime: new Date(tokenInfo.exp * 1000).toISOString(),
-    timeUntilExpiry: `${Math.floor(tokenInfo.timeUntilExpiry / 60)}分${tokenInfo.timeUntilExpiry % 60}秒`,
-    isExpired: tokenInfo.isExpired,
-    willExpireSoon: tokenInfo.willExpireSoon,
-    // トークンの詳細情報を追加
-    tokenLength: token.length,
-    tokenStart: token.substring(0, 20) + '...',
-    tokenEnd: '...' + token.substring(token.length - 20)
-  });
+  // console.log('Token expiry check:', {
+  //   currentTime: new Date(tokenInfo.currentTime * 1000).toISOString(),
+  //   expiryTime: new Date(tokenInfo.exp * 1000).toISOString(),
+  //   timeUntilExpiry: `${Math.floor(tokenInfo.timeUntilExpiry / 60)}分${tokenInfo.timeUntilExpiry % 60}秒`,
+  //   isExpired: tokenInfo.isExpired,
+  //   willExpireSoon: tokenInfo.willExpireSoon,
+  //   // トークンの詳細情報を追加
+  //   tokenLength: token.length,
+  //   tokenStart: token.substring(0, 20) + '...',
+  //   tokenEnd: '...' + token.substring(token.length - 20)
+  // });
   
   // 実際に期限切れの場合のみtrueを返す（緩和）
   return tokenInfo.isExpired;
@@ -69,16 +69,16 @@ export const createSupabaseWithAuth = (token: string): SupabaseClient => {
   // トークンの詳細情報をログ出力
   const tokenInfo = parseJWTToken(token);
   if (tokenInfo) {
-    console.log('Creating Supabase client with token:', {
-      tokenLength: token.length,
-      expiryTime: new Date(tokenInfo.exp * 1000).toISOString(),
-      timeUntilExpiry: `${Math.floor(tokenInfo.timeUntilExpiry / 60)}分${tokenInfo.timeUntilExpiry % 60}秒`,
-      isExpired: tokenInfo.isExpired,
-      willExpireSoon: tokenInfo.willExpireSoon,
-      // トークンの内容を確認
-      tokenStart: token.substring(0, 20) + '...',
-      tokenEnd: '...' + token.substring(token.length - 20)
-    });
+    // console.log('Creating Supabase client with token:', {
+    //   tokenLength: token.length,
+    //   expiryTime: new Date(tokenInfo.exp * 1000).toISOString(),
+    //   timeUntilExpiry: `${Math.floor(tokenInfo.timeUntilExpiry / 60)}分${tokenInfo.timeUntilExpiry % 60}秒`,
+    //   isExpired: tokenInfo.isExpired,
+    //   willExpireSoon: tokenInfo.willExpireSoon,
+    //   // トークンの内容を確認
+    //   tokenStart: token.substring(0, 20) + '...',
+    //   tokenEnd: '...' + token.substring(token.length - 20)
+    // });
   } else {
     console.warn('Failed to parse token, but proceeding with client creation');
   }
@@ -122,21 +122,21 @@ export function useSupabaseWithAuth() {
       if (!isLoaded || !session || initializedRef.current) return;
 
       try {
-        console.log('=== Clerk Session Debug Info ===');
-        console.log('Session user ID:', session.user.id);
-        console.log('Session loaded:', isLoaded);
-        console.log('Session status:', session.status);
+        // console.log('=== Clerk Session Debug Info ===');
+        // console.log('Session user ID:', session.user.id);
+        // console.log('Session loaded:', isLoaded);
+        // console.log('Session status:', session.status);
         
         // 利用可能なJWTテンプレートを確認
         try {
           const availableTemplates = await session.getToken({ template: "supabase" });
-          console.log('Supabase template available:', !!availableTemplates);
+          // console.log('Supabase template available:', !!availableTemplates);
         } catch (templateError) {
           console.error('Supabase template error:', templateError);
         }
 
         const token = await session.getToken({ template: "supabase" });
-        console.log("🔑 ClerkのJWT:", token ? `${token.substring(0, 20)}...` : 'null');
+        // console.log("🔑 ClerkのJWT:", token ? `${token.substring(0, 20)}...` : 'null');
 
         if (token) {
           const supabase = createSupabaseWithAuth(token);
@@ -144,9 +144,9 @@ export function useSupabaseWithAuth() {
           initializedRef.current = true;
 
           const ownerUuid = toStableUUID(session.user.id);
-          console.log('Setting session with token...');
+          // console.log('Setting session with token...');
           await supabase.auth.setSession({ access_token: token, refresh_token: "" });
-          console.log('Session set successfully');
+          // console.log('Session set successfully');
 
           // トークンの有効期限に基づいて自動更新を設定
           const expiry = getTokenExpiry(token);
@@ -156,7 +156,7 @@ export function useSupabaseWithAuth() {
 
             if (timeUntilExpiry > 0) {
               refreshTimeoutRef.current = setTimeout(() => {
-                console.log('Token refresh timeout triggered');
+                // console.log('Token refresh timeout triggered');
                 initializedRef.current = false;
                 setSupabaseClient(null);
               }, timeUntilExpiry);

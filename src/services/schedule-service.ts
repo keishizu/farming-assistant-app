@@ -17,11 +17,12 @@ export const generateTasksFromCrops = async (supabase: SupabaseClient, userId: s
 
   allCrops.forEach((crop) => {
     crop.tasks.forEach((task) => {
-      const startDate = addDays(crop.startDate, task.daysFromStart);
+      const startDate = addDays(new Date(crop.startDate), task.daysFromStart);
       const endDate = addDays(startDate, task.duration - 1);
 
       tasks.push({
         id: task.id,
+        cropId: crop.id,
         cropName: crop.name,
         taskName: task.taskType,
         taskType: task.taskType,

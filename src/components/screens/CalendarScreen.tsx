@@ -76,11 +76,12 @@ export default function CalendarScreen() {
       const allCrops = [...customCropsData, ...smartCropsData];
       const generatedTasks = allCrops.flatMap(crop => {
         return crop.tasks.map(task => {
-          const startDate = addDays(crop.startDate, task.daysFromStart);
+          const startDate = addDays(new Date(crop.startDate), task.daysFromStart);
           const endDate = addDays(startDate, task.duration - 1);
 
           return {
             id: task.id,
+            cropId: crop.id,
             cropName: crop.name,
             taskName: task.taskType,
             taskType: task.taskType,
@@ -113,37 +114,33 @@ export default function CalendarScreen() {
     setTasks(updatedTasks);
   }, []);
 
-  const handleRecordsUpdate = useCallback(async (updatedRecords: FarmRecord[]) => {
-    console.log('=== CalendarScreen handleRecordsUpdate started ===');
-    console.log('Received updatedRecords:', updatedRecords);
-    console.log('Current records state:', records);
-    
+  const handleRecordsUpdate = async (updatedRecords: FarmRecord[]) => {
+    // console.log('=== CalendarScreen handleRecordsUpdate started ===');
+    // console.log('Received updatedRecords:', updatedRecords);
+    // console.log('Current records state:', records);
+
     // ローカル状態を更新
-    console.log('Updating local state with:', updatedRecords);
+    // console.log('Updating local state with:', updatedRecords);
     setRecords(updatedRecords);
-    console.log('Local state updated');
-    
-    // データベースから最新のデータを再取得
-    try {
-      if (userId && supabase) {
-        console.log('Refreshing data from database...');
+    // console.log('Local state updated');
+
+    // データベースから最新データを取得して状態を更新
+    if (userId && supabase) {
+      // console.log('Refreshing data from database...');
+      try {
         const freshRecords = await getFarmRecords(supabase, userId);
-        console.log('Fresh records from database:', freshRecords);
+        // console.log('Fresh records from database:', freshRecords);
         setRecords(freshRecords);
-        console.log('State updated with fresh records');
-      } else {
-        console.log('Missing userId or supabase client for refresh');
+        // console.log('State updated with fresh records');
+      } catch (error) {
+        console.error("Failed to refresh records:", error);
       }
-    } catch (error) {
-      console.error('Failed to refresh records:', error);
-      toast({
-        title: "警告",
-        description: "データの更新に失敗しました",
-        variant: "destructive",
-      });
+    } else {
+      // console.log('Missing userId or supabase client for refresh');
     }
-    console.log('=== CalendarScreen handleRecordsUpdate completed ===');
-  }, [userId, supabase, toast, records]);
+
+    // console.log('=== CalendarScreen handleRecordsUpdate completed ===');
+  };
 
   if (isLoading) {
     return (

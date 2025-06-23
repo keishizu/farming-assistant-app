@@ -109,7 +109,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
       const newCrop: CustomCrop = {
         id: uuidv4(),
         name: name.trim(),
-        startDate: new Date(startDate),
+        startDate: startDate,
         memo: memo.trim(),
         tasks: pendingTasks.sort((a, b) => a.daysFromStart - b.daysFromStart),
         color: {
@@ -119,33 +119,19 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
         },
       };
 
-      console.log("Attempting to save new crop:", newCrop);
-
-      // 作物を保存
-      await saveCustomCrop(supabase, session.user.id, [newCrop]);
+      // console.log("Attempting to save new crop:", newCrop);
+      const savedCrops = await saveCustomCrop(supabase, session.user.id, [newCrop]);
       onAdd(newCrop);
       onClose();
-
-      // フォームをリセット
-      setName("");
-      setStartDate("");
-      setMemo("");
-      setColor(CROP_COLOR_OPTIONS[0]);
-      setPendingTasks([]);
-      setEditingTask(null);
-
-      // 成功メッセージを表示
       toast({
-        title: "追加しました",
-        description: "新しい作物を追加しました",
+        title: "保存しました",
+        description: `${newCrop.name}を追加しました`,
       });
     } catch (error) {
-      console.error("Error saving crop:", error);
+      console.error("Failed to save crop:", error);
       toast({
         title: "エラー",
-        description: error instanceof Error 
-          ? `作物の保存に失敗しました: ${error.message}`
-          : "作物の保存に失敗しました",
+        description: "作物の保存に失敗しました",
         variant: "destructive",
       });
     }

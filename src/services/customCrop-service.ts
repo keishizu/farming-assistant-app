@@ -1,62 +1,70 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { CustomCrop } from "@/types/crop";
+import { CustomCrop, CROP_COLOR_OPTIONS } from "@/types/crop";
 import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
 
 // 🔽 CustomCrop取得（ログイン中ユーザーのデータのみ）
-export const getCustomCrops = async (supabase: SupabaseClient, userId: string, token: string): Promise<CustomCrop[]> => {
-  if (!userId || !token) throw new Error("User not authenticated");
-
-  const authenticatedSupabase = getAuthenticatedSupabaseClient(token);
-
-  console.log("Fetching custom crops for user:", userId);
-  console.log("Using supabase client:", authenticatedSupabase);
+export async function getCustomCrops(
+  authenticatedSupabase: SupabaseClient,
+  userId: string,
+  token: string
+): Promise<CustomCrop[]> {
+  // console.log("Fetching custom crops for user:", userId);
+  // console.log("Using supabase client:", authenticatedSupabase);
 
   try {
-    // テーブル構造の確認
+    // テーブル構造を確認
     const { data: tableInfo, error: tableError } = await authenticatedSupabase
-      .from("custom_crops")
-      .select("*")
+      .from('custom_crops')
+      .select('*')
       .limit(1);
 
-    console.log("Table structure:", tableInfo);
+    // console.log("Table structure:", tableInfo);
+
     if (tableError) {
-      console.error("Error checking table structure:", tableError);
+      console.error("Table structure check failed:", tableError);
+      throw new Error(`Failed to check table structure: ${tableError.message}`);
     }
 
-    // データの取得
+    // データを取得
     const { data, error } = await authenticatedSupabase
-      .from("custom_crops")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .throwOnError();
+      .from('custom_crops')
+      .select('*')
+      .eq('user_id', userId);
 
     if (error) {
-      console.error("Error fetching custom crops:", error);
-      throw error;
+      console.error("Failed to fetch custom crops:", error);
+      throw new Error(`Failed to fetch custom crops: ${error.message}`);
     }
 
-    console.log("Raw data from custom_crops for user:", data);
-    console.log("Data type:", typeof data);
-    console.log("Is array:", Array.isArray(data));
-    console.log("Data structure:", JSON.stringify(data, null, 2));
-    
-    const mappedData = data?.map(crop => {
-      console.log("Processing crop:", crop);
-      return {
-        ...crop,
-        startDate: new Date(crop.start_date),
-        tasks: crop.tasks || [],
-      };
-    }) || [];
+    // console.log("Raw data from custom_crops for user:", data);
+    // console.log("Data type:", typeof data);
+    // console.log("Is array:", Array.isArray(data));
+    // console.log("Data structure:", JSON.stringify(data, null, 2));
 
-    console.log("Mapped custom crops:", mappedData);
+    if (!data || !Array.isArray(data)) {
+      console.warn("No data or invalid data format returned from custom_crops");
+      return [];
+    }
+
+    const mappedData = data.map((crop: any) => {
+      // console.log("Processing crop:", crop);
+      return {
+        id: crop.id,
+        name: crop.name,
+        startDate: crop.start_date, // ISO 8601 string
+        memo: crop.memo,
+        tasks: crop.tasks || [],
+        color: crop.color || CROP_COLOR_OPTIONS[0],
+      };
+    });
+
+    // console.log("Mapped custom crops:", mappedData);
     return mappedData;
   } catch (error) {
     console.error("Error in getCustomCrops:", error);
     throw error;
   }
-};
+}
 
 // 🔽 CustomCrop保存
 export const saveCustomCrop = async (supabase: SupabaseClient, userId: string, crops: CustomCrop[]): Promise<void> => {
@@ -71,14 +79,14 @@ export const saveCustomCrop = async (supabase: SupabaseClient, userId: string, c
       const formattedData = {
         ...rest,
         user_id: userId,
-        start_date: startDate.toISOString(),
+        start_date: startDate, // ISO 8601 string
       };
-      console.log("Formatted crop data:", JSON.stringify(formattedData, null, 2));
+      // console.log("Formatted crop data:", JSON.stringify(formattedData, null, 2));
       return formattedData;
     });
 
-    console.log("Attempting to insert crops for user:", userId);
-    console.log("Total crops to insert:", dataToInsert.length);
+    // console.log("Attempting to insert crops for user:", userId);
+    // console.log("Total crops to insert:", dataToInsert.length);
 
     // 作物データを保存
     const { data, error: insertError } = await supabase
@@ -99,7 +107,7 @@ export const saveCustomCrop = async (supabase: SupabaseClient, userId: string, c
       throw new Error(`Failed to insert crops: ${insertError.message}`);
     }
 
-    console.log("Successfully inserted crops:", data);
+    // console.log("Successfully inserted crops:", data);
   } catch (error) {
     console.error("Error in saveCustomCrop:", error);
     throw error;
@@ -115,7 +123,7 @@ export const updateCustomCrop = async (supabase: SupabaseClient, userId: string,
     .from("custom_crops")
     .update({
       ...rest,
-      start_date: startDate?.toISOString(),
+      start_date: startDate, // ISO 8601 string
     })
     .eq("id", cropId)
     .eq("user_id", userId);
@@ -134,6 +142,48 @@ export const deleteCustomCrop = async (supabase: SupabaseClient, userId: string,
     .eq("user_id", userId);
 
   if (deleteError) throw new Error(`Failed to delete crop: ${deleteError.message}`);
+};
+
+export const saveCustomCrops = async (supabase: SupabaseClient, userId: string, crops: CustomCrop[]): Promise<CustomCrop[]> => {
+  if (!userId) throw new Error("User not authenticated");
+
+  const authenticatedSupabase = getAuthenticatedSupabaseClient(userId);
+
+  const dataToInsert = crops.map(crop => {
+    const formattedData = {
+      id: crop.id,
+      user_id: userId,
+      name: crop.name,
+      start_date: crop.startDate, // ISO 8601 string
+      memo: crop.memo,
+      tasks: crop.tasks,
+      color: crop.color,
+    };
+    // console.log("Formatted crop data:", JSON.stringify(formattedData, null, 2));
+    return formattedData;
+  });
+
+  // console.log("Attempting to insert crops for user:", userId);
+  // console.log("Total crops to insert:", dataToInsert.length);
+
+  // 作物データを保存
+  const { data, error } = await authenticatedSupabase
+    .from("custom_crops")
+    .upsert(dataToInsert, { onConflict: "id" })
+    .select()
+    .throwOnError();
+
+  if (error) {
+    console.error("Error saving custom crops:", error);
+    throw error;
+  }
+
+  // console.log("Successfully inserted crops:", data);
+  return data?.map(crop => ({
+    ...crop,
+    startDate: crop.start_date, // ISO 8601 string
+    tasks: crop.tasks || [],
+  })) || [];
 };
 
 

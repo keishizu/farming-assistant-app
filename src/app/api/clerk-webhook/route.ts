@@ -1,8 +1,9 @@
 import { Webhook, type WebhookRequiredHeaders } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";   // ← 関数ではなく “オブジェクト”
+import { clerkClient } from "@clerk/nextjs/server";   // ← 関数ではなく "オブジェクト"
 import { randomUUID } from "crypto";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
           publicMetadata: { supabase_uuid },         // camelCase が正
         });
     
-        console.log(`supabase_uuid set for ${userId}: ${supabase_uuid}`);
+        // console.log(`supabase_uuid set for ${userId}: ${supabase_uuid}`);
       } catch (e: any) {
         // ダミーID や削除済みユーザーで 404 が出るのは握りつぶす
         if (e.status !== 404) throw e;

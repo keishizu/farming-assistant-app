@@ -109,9 +109,9 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
     );
   };
 
-  const getCropColor = (cropName: string) => {
+  const getCropColor = (cropId: string) => {
     const allCrops = [...customCrops, ...smartCrops];
-    const crop = allCrops.find((c) => c.name === cropName);
+    const crop = allCrops.find((c) => c.id === cropId);
     return crop?.color.bg || "bg-gray-100";
   };
 
@@ -237,7 +237,7 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
               {todayRecords.slice(0, MAX_RECORDS_PER_DAY).map((record, index) => (
                 <div
                   key={record.id}
-                  className={`calendar-bar record-bar ${getCropColor(record.crop)}`}
+                  className={`calendar-bar record-bar ${getCropColor(record.cropId)}`}
                   style={{
                     top: `${0.2 + RECORD_HEIGHT_REM * (index + 1)}rem`,
                     height: "1.25rem",

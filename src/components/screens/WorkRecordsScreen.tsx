@@ -29,6 +29,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
 import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
+import { getCustomCrops } from "@/services/customCrop-service";
+import { getSmartCrops } from "@/services/smartCrop-service";
+import { CustomCrop } from "@/types/crop";
 
 export default function HomeScreen() {
   const { userId, getToken } = useAuth();
@@ -42,6 +45,8 @@ export default function HomeScreen() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cropNames, setCropNames] = useState<string[]>([]);
   const [availableTaskTypes, setAvailableTaskTypes] = useState<string[]>([]);
+  const [customCrops, setCustomCrops] = useState<CustomCrop[]>([]);
+  const [smartCrops, setSmartCrops] = useState<CustomCrop[]>([]);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -61,6 +66,27 @@ export default function HomeScreen() {
 
     fetchCropNames();
   }, [userId, getToken]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchCrops = async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) throw new Error("Token not found");
+        const [customCropsData, smartCropsData] = await Promise.all([
+          getCustomCrops(supabase!, userId, token),
+          getSmartCrops(supabase!, userId),
+        ]);
+        setCustomCrops(customCropsData);
+        setSmartCrops(smartCropsData);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchCrops();
+  }, [userId, getToken, supabase]);
 
   useEffect(() => {
     if (!userId || !crop) {
@@ -124,8 +150,14 @@ export default function HomeScreen() {
     // photoPathをそのまま使用する
     const finalPhotoPath = photoPath;
 
+    // 作物名からcropIdを取得
+    const allCrops = [...customCrops, ...smartCrops];
+    const selectedCrop = allCrops.find(c => c.name === crop);
+    const cropId = selectedCrop?.id || "";
+
     const record: NewFarmRecord = {
       userId,
+      cropId,
       date: format(date, "yyyy-MM-dd"),
       crop,
       task,
@@ -168,7 +200,7 @@ export default function HomeScreen() {
     const file = event.target.files?.[0];
     if (!file || !userId || !supabase) return;
 
-    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+    // console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     if (!file.type.startsWith("image/")) {
       toast({
@@ -182,7 +214,7 @@ export default function HomeScreen() {
     // 既存のプレビューURLをクリーンアップ
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
-      console.log('Previous preview URL cleaned up');
+      // console.log('Previous preview URL cleaned up');
     }
 
     try {
@@ -190,7 +222,7 @@ export default function HomeScreen() {
       setPhotoPath(path);        // DB 用
       setPreviewUrl(signedUrl);  // その場プレビュー用
       setSelectedFile(file);
-      console.log('Preview URL created:', signedUrl);
+      // console.log('Preview URL created:', signedUrl);
     } catch (error) {
       console.error("Failed to upload image:", error);
       toast({

@@ -2,6 +2,7 @@ import { TaskType } from "@/types/crop";
 
 export interface Task {
   id: string;
+  cropId: string;
   cropName: string;
   taskName: string;
   taskType: TaskType;
