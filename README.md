@@ -8,14 +8,16 @@
 - **Next.js** (v14.2.25) - React フレームワーク
 - **React** (v18.2.0) - UI ライブラリ
 - **TypeScript** (v5.2.2) - 型付き JavaScript
-- **Shadcn/ui** - UI コンポーネント
+- **shadcn/ui** - UI コンポーネント
 - **Tailwind CSS** (v3.4.1) - ユーティリティファースト CSS フレームワーク
 - **Radix UI** - アクセシブルなヘッドレス UI コンポーネント
 - **Lucide React** (v0.446.0) - アイコンライブラリ
 
 ### バックエンド
-- **Prisma** (v5.11.0) - TypeSafe ORM
-- Local SQLite（後に Supabase へ移行予定）
+- **Supabase** (Postgres, Storage) - バックエンドサービス
+  - PostgreSQL - リレーショナルデータベース
+  - Supabase Storage - ファイルストレージ
+- ~~Prisma + SQLite~~ (移行前の構成)
 
 ### 認証
 - **Clerk** (v6.12.9) - 認証・ユーザー管理
@@ -23,6 +25,39 @@
 ### その他
 - **date-fns** (v3.6.0) - 日付操作ライブラリ
 - **Zod** - スキーマバリデーション
+
+## Quick Start
+
+```bash
+git clone https://github.com/<your-org>/farming-assistant-app.git
+cd farming-assistant-app
+pnpm i
+cp .env.example .env.local
+pnpm dev
+```
+
+## 環境変数
+
+| 変数名 | 説明 | 必須 |
+|--------|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | SupabaseプロジェクトのURL | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase匿名キー | ✅ |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk公開キー | ✅ |
+| `CLERK_SECRET_KEY` | Clerk秘密キー | ✅ |
+| `SENTRY_DSN` | Sentryエラー監視DSN | ❌ |
+
+`.env.example` を参照してください。
+
+## Supabase セットアップ
+
+詳細なセットアップ手順は [docs/supabase-setup.md](docs/supabase-setup.md) を参照してください。
+
+### 必要な設定
+
+- **user-uploads** バケットの作成
+- Row Level Security (RLS) ポリシーの設定
+  - ユーザーは自分のアップロードしたファイルのみアクセス可能
+  - 認証済みユーザーのみアップロード可能
 
 ## プロジェクト構造
 
@@ -44,39 +79,17 @@ src/
 │   ├── constants/        # 定数
 │   ├── types/           # 型定義
 │   └── utils/           # ヘルパー関数
-│
-└── dal/                 # Data Access Layer
 ```
 
 ## 開発環境のセットアップ
 
 1. リポジトリのクローン
-```bash
-git clone [repository-url]
-cd farming-assistant-app
-```
-
 2. 依存関係のインストール
-```bash
-npm install
-```
+3. 環境変数ファイルの作成（`.env.example` を参照）
+4. 開発サーバーの起動
 
-3. 環境変数の設定
-`.env`ファイルを作成し、以下の環境変数を設定：
-```env
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-```
-
-4. データベースのセットアップ
 ```bash
-npx prisma generate
-npx prisma db push
-```
-
-5. 開発サーバーの起動
-```bash
-npm run dev
+pnpm dev
 ```
 
 ## 主な機能
@@ -86,6 +99,7 @@ npm run dev
 - 作物の成長記録
 - 天気情報の表示
 - 作業スケジュール管理
+- 画像アップロード（Supabase Storage）
 
 ## 開発ルール
 
@@ -95,7 +109,26 @@ npm run dev
 - アクセシビリティ対応
 - レスポンシブデザインの実装
 
-## デプロイメント
+## ブランチ構成 (dev / main / production)
+
+```
+production
+├── main
+│   └── feature/feature-name
+└── dev
+```
+
+### Vercel 環境変数のプロモート手順
+
+1. **dev環境** → **main環境**
+   - Vercel Dashboard で `dev` ブランチの環境変数を確認
+   - `main` ブランチに同じ環境変数を設定
+
+2. **main環境** → **production環境**
+   - main環境での動作確認後
+   - `production` 環境に本番用環境変数を設定
+
+### 推奨プラットフォーム
 
 Vercelプラットフォームを使用したデプロイメントを推奨します。
 

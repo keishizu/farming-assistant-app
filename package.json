@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "jest"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
@@ -85,6 +86,8 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/react-calendar": "^3.9.0"
+    "@types/react-calendar": "^3.9.0",
+    "jest": "^30.0.2",
+    "ts-jest": "^29.4.0"
   }
 }

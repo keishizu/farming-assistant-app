@@ -17,20 +17,14 @@ import {
   eachDayOfInterval,
   isToday,
   isSameMonth,
-  isSameDay,
-  addDays,
 } from "date-fns";
 import { ja } from "date-fns/locale";
 
 import { Task } from "@/types/calendar";
 import { EditTaskModal } from "./edit-task-modal";
 import { useToast } from "@/hooks/use-toast";
-import { getCustomCrops, saveCustomCrop } from "@/services/customCrop-service";
-import { getSmartCrops, saveSmartCrops } from "@/services/smartCrop-service";
-import { CustomCrop, CropTask } from "@/types/crop";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
-import { useSession } from "@clerk/nextjs";
 
 interface ScheduleCalendarProps {
   tasks: Task[];
@@ -98,13 +92,6 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
       });
       
       setSelectedTask(null);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!userId || !supabase) {
-      // console.log("Supabase client not initialized");
-      return;
     }
   };
 

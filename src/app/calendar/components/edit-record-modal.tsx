@@ -256,16 +256,20 @@ export function EditRecordModal({
         originalPathRef.current !== finalPhotoPath &&
         newImageUploaded
       ) {
-        try {
-          // console.log('Deleting old image:', originalPathRef.current);
-          await deleteImage(supabase, originalPathRef.current);
+        // console.log('Deleting old image:', originalPathRef.current);
+        const deleteResult = await deleteImage(supabase, originalPathRef.current);
+        
+        if (deleteResult === "success") {
           // console.log('Old image deleted successfully');
           toast({
             title: "更新しました",
             description: "記録を更新し、古い画像を削除しました",
           });
-        } catch (error) {
-          console.error("Failed to delete old image:", error);
+        } else {
+          console.error("Failed to delete old image:", {
+            path: originalPathRef.current,
+            result: deleteResult
+          });
           toast({
             title: "警告",
             description: "記録は更新されましたが、古い画像の削除に失敗しました",
@@ -286,12 +290,16 @@ export function EditRecordModal({
       
       // DB更新失敗時、新しくアップロードした画像を削除
       if (selectedFile && photoPath && photoPath !== originalPathRef.current) {
-        try {
-          // console.log('Rolling back uploaded image due to DB update failure:', photoPath);
-          await deleteImage(supabase, photoPath);
+        // console.log('Rolling back uploaded image due to DB update failure:', photoPath);
+        const rollbackResult = await deleteImage(supabase, photoPath);
+        
+        if (rollbackResult === "success") {
           // console.log('Rollback image deleted successfully');
-        } catch (rollbackError) {
-          console.error("Failed to rollback uploaded image:", rollbackError);
+        } else {
+          console.error("Failed to rollback uploaded image:", {
+            path: photoPath,
+            result: rollbackResult
+          });
         }
       }
 
@@ -343,8 +351,13 @@ export function EditRecordModal({
   const handleRemovePhoto = () => {
     // 新規アップロードした画像をSupabase Storageから削除
     if (selectedFile && photoPath && photoPath !== originalPathRef.current && supabase) {
-      deleteImage(supabase, photoPath).catch(error => {
-        console.error("Failed to delete uploaded image:", error);
+      deleteImage(supabase, photoPath).then(result => {
+        if (result !== "success") {
+          console.error("Failed to delete uploaded image:", {
+            path: photoPath,
+            result
+          });
+        }
       });
     }
 

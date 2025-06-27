@@ -213,12 +213,16 @@ export const deleteFarmRecord = async (
 
   // 関連する画像があれば削除
   if (recordData?.photo_path) {
-    try {
-      // console.log('Deleting associated image:', recordData.photo_path);
-      await deleteImage(supabase, recordData.photo_path);
+    // console.log('Deleting associated image:', recordData.photo_path);
+    const deleteResult = await deleteImage(supabase, recordData.photo_path);
+    
+    if (deleteResult === "success") {
       // console.log('Associated image deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete associated image:', error);
+    } else {
+      console.error('Failed to delete associated image:', {
+        path: recordData.photo_path,
+        result: deleteResult
+      });
     }
   }
 

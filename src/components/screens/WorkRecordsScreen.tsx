@@ -34,6 +34,7 @@ import { getSmartCrops } from "@/services/smartCrop-service";
 import { CustomCrop } from "@/types/crop";
 
 export default function HomeScreen() {
+  // すべてのフックを先頭で宣言
   const { userId, getToken } = useAuth();
   const supabase = useSupabaseWithAuth();
   const [crop, setCrop] = useState("");
@@ -52,7 +53,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!userId) return;
-
     const fetchCropNames = async () => {
       try {
         const token = await getToken({ template: "supabase" });
@@ -63,20 +63,18 @@ export default function HomeScreen() {
         console.error(err);
       }
     };
-
     fetchCropNames();
   }, [userId, getToken]);
 
   useEffect(() => {
-    if (!userId) return;
-
+    if (!userId || !supabase) return;
     const fetchCrops = async () => {
       try {
         const token = await getToken({ template: "supabase" });
         if (!token) throw new Error("Token not found");
         const [customCropsData, smartCropsData] = await Promise.all([
-          getCustomCrops(supabase!, userId, token),
-          getSmartCrops(supabase!, userId),
+          getCustomCrops(supabase, userId, token),
+          getSmartCrops(supabase, userId),
         ]);
         setCustomCrops(customCropsData);
         setSmartCrops(smartCropsData);
@@ -84,17 +82,15 @@ export default function HomeScreen() {
         console.error(err);
       }
     };
-
     fetchCrops();
   }, [userId, getToken, supabase]);
 
   useEffect(() => {
-    if (!userId || !crop) {
+    if (!userId || !crop || !supabase) {
       setAvailableTaskTypes([]);
       setTask("");
       return;
     }
-
     const fetchTaskTypes = async () => {
       try {
         const token = await getToken({ template: "supabase" });
@@ -106,11 +102,9 @@ export default function HomeScreen() {
         console.error(err);
       }
     };
-
     fetchTaskTypes();
-  }, [userId, crop, task, getToken]);
+  }, [userId, crop, task, getToken, supabase]);
 
-  // コンポーネントのアンマウント時にプレビューURLをクリーンアップ
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -118,6 +112,23 @@ export default function HomeScreen() {
       }
     };
   }, [previewUrl]);
+
+  // supabaseがnullの間だけローディングUIをreturn
+  if (!supabase) {
+    return (
+      <div className="max-w-md mx-auto p-4 space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-green-800">農作業記録</h1>
+          <p className="text-gray-600">データベース接続を初期化中...</p>
+        </div>
+        <Card className="p-6">
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const handleCropChange = (value: string) => {
     setCrop(value);
@@ -146,6 +157,15 @@ export default function HomeScreen() {
       return;
     }
 
+    if (!supabase) {
+      toast({
+        title: "エラー",
+        description: "データベース接続が初期化されていません",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // selectedFileは既にhandlePhotoSelectでアップロード済みなので、
     // photoPathをそのまま使用する
     const finalPhotoPath = photoPath;
@@ -166,9 +186,6 @@ export default function HomeScreen() {
     };
 
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not initialized");
-      }
       await saveFarmRecord(supabase, userId, record);
       toast({
         title: "保存しました",
@@ -198,7 +215,16 @@ export default function HomeScreen() {
 
   const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !userId || !supabase) return;
+    if (!file || !userId || !supabase) {
+      if (!supabase) {
+        toast({
+          title: "エラー",
+          description: "データベース接続が初期化されていません",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
 
     // console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
 

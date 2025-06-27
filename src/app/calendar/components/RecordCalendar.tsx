@@ -180,6 +180,12 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
       return url;
     } catch (error) {
       console.error("Failed to get signed URL:", error);
+      
+      // 署名付きURLの有効期限切れエラーの場合
+      if (error instanceof Error && error.message === "SIGNED_URL_EXPIRED") {
+        console.warn("Signed URL expired, image may need to be re-uploaded:", photoPath);
+      }
+      
       return "";
     }
   };

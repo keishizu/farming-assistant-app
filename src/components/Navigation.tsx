@@ -15,7 +15,7 @@ export default function Navigation() {
     { href: "/todo", icon: CheckSquare, label: "タスク" },
     { href: "/crop-schedule", icon: Sprout, label: "カスタム" },
     { href: "/smart-schedule", icon: Brain, label: "スマート" },
-    { href: "/comments", icon: MessageSquare, label: "掲示板" },
+    // { href: "/comments", icon: MessageSquare, label: "掲示板" },
   ];
 
   return (
