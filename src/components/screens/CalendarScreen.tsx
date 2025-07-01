@@ -17,6 +17,7 @@ import { FarmRecord } from '@/types/farm';
 import { CustomCrop } from '@/types/crop';
 import { addDays, format } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
+import { useSession } from "@clerk/nextjs";
 
 const container = {
   hidden: { opacity: 0 },
@@ -35,6 +36,7 @@ const item = {
 
 export default function CalendarScreen() {
   const { userId, getToken } = useAuth();
+  const { session } = useSession();
   const supabase = useSupabaseWithAuth();
   const [records, setRecords] = useState<FarmRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -65,8 +67,8 @@ export default function CalendarScreen() {
 
       const [farmRecords, customCropsData, smartCropsData] = await Promise.all([
         getFarmRecords(supabase, userId),
-        getCustomCrops(supabase, userId, token),
-        getSmartCrops(supabase, userId),
+        getCustomCrops(supabase, userId, token, session),
+        getSmartCrops(supabase, userId, session),
       ]);
 
       setRecords(farmRecords);
@@ -74,28 +76,22 @@ export default function CalendarScreen() {
       setSmartCrops(smartCropsData);
 
       const allCrops = [...customCropsData, ...smartCropsData];
-      const generatedTasks = allCrops.flatMap(crop => {
-        return crop.tasks.map(task => {
-          const startDate = addDays(new Date(crop.startDate), task.daysFromStart);
-          const endDate = addDays(startDate, task.duration - 1);
-
-          return {
-            id: task.id,
-            cropId: crop.id,
-            cropName: crop.name,
-            taskName: task.taskType,
-            taskType: task.taskType,
-            startDate: format(startDate, "yyyy-MM-dd"),
-            endDate: format(endDate, "yyyy-MM-dd"),
-            memo: task.memo,
-            color: crop.color.bg,
-          };
-        });
-      });
-
+      const generatedTasks = await generateTasksFromCrops(supabase, userId, token, session);
       setTasks(generatedTasks);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("データの読み込みに失敗しました:", error);
+      
+      // JWT expired エラーの場合、セッション切れのメッセージを表示
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && 
+          (error.message.includes('JWT expired') || (error as any)?.code === 'PGRST301')) {
+        toast({
+          title: "セッション切れ",
+          description: "ページを再読み込みしてください。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "エラー",
         description: "データの読み込みに失敗しました",
@@ -104,43 +100,15 @@ export default function CalendarScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, supabase, getToken, toast]);
+  }, [userId, supabase, getToken, toast, session]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const handleTasksUpdate = useCallback((updatedTasks: Task[]) => {
-    setTasks(updatedTasks);
-  }, []);
-
-  const handleRecordsUpdate = async (updatedRecords: FarmRecord[]) => {
-    // console.log('=== CalendarScreen handleRecordsUpdate started ===');
-    // console.log('Received updatedRecords:', updatedRecords);
-    // console.log('Current records state:', records);
-
-    // ローカル状態を更新
-    // console.log('Updating local state with:', updatedRecords);
+  const handleRecordUpdate = useCallback((updatedRecords: FarmRecord[]) => {
     setRecords(updatedRecords);
-    // console.log('Local state updated');
-
-    // データベースから最新データを取得して状態を更新
-    if (userId && supabase) {
-      // console.log('Refreshing data from database...');
-      try {
-        const freshRecords = await getFarmRecords(supabase, userId);
-        // console.log('Fresh records from database:', freshRecords);
-        setRecords(freshRecords);
-        // console.log('State updated with fresh records');
-      } catch (error) {
-        console.error("Failed to refresh records:", error);
-      }
-    } else {
-      // console.log('Missing userId or supabase client for refresh');
-    }
-
-    // console.log('=== CalendarScreen handleRecordsUpdate completed ===');
-  };
+  }, []);
 
   if (isLoading) {
     return (
@@ -171,13 +139,13 @@ export default function CalendarScreen() {
             <motion.div variants={item}>
               <Card className="p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">予定カレンダー</h2>
-                <ScheduleCalendar tasks={tasks} onUpdate={handleTasksUpdate} />
+                <ScheduleCalendar tasks={tasks} />
               </Card>
             </motion.div>
             <motion.div variants={item}>
               <Card className="p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">実績カレンダー</h2>
-                <RecordCalendar records={records} onUpdate={handleRecordsUpdate} />
+                <RecordCalendar records={records} onUpdate={handleRecordUpdate} />
               </Card>
             </motion.div>
           </div>

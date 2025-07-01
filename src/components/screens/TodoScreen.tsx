@@ -80,8 +80,20 @@ export default function TodoScreen() {
         });
 
         setTasks(sortedWithStatus);
-      } catch (error) {
+      } catch (error: any) {
         console.error("タスクの読み込みに失敗しました:", error);
+        
+        // JWT expired エラーの場合、セッション切れのメッセージを表示
+        if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && 
+            (error.message.includes('JWT expired') || (error as any)?.code === 'PGRST301')) {
+          toast({
+            title: "セッション切れ",
+            description: "ページを再読み込みしてください。",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
           title: "エラー",
           description: "タスクの読み込みに失敗しました",
@@ -157,7 +169,7 @@ export default function TodoScreen() {
                       task.completed ? "line-through text-gray-500" : ""
                     }`}
                   >
-                    <span className={`inline-block ${task.completed ? "text-gray-500" : task.color}`}>
+                    <span className={`inline-block ${task.completed ? "text-gray-500" : task.color || "text-green-600"}`}>
                       {task.cropName}
                     </span>
                     <span className="text-foreground">{`：${task.taskName}作業`}</span>

@@ -44,6 +44,7 @@ import { CustomCrop } from "@/types/crop";
 import { useAuth } from "@clerk/nextjs";
 import { useSupabaseWithAuth } from "@/lib/supabase";
 import { getSignedImageUrl } from "@/services/upload-image";
+import { useSession } from "@clerk/nextjs";
 
 interface RecordCalendarProps {
   records: FarmRecord[];
@@ -52,6 +53,7 @@ interface RecordCalendarProps {
 
 export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
   const { userId, isLoaded, getToken } = useAuth();
+  const { session } = useSession();
   const supabase = useSupabaseWithAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -75,8 +77,8 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
           throw new Error("認証トークンの取得に失敗しました");
         }
         const [customCropsData, smartCropsData] = await Promise.all([
-          getCustomCrops(supabase, userId, token),
-          getSmartCrops(supabase, userId),
+          getCustomCrops(supabase, userId, token, session),
+          getSmartCrops(supabase, userId, session),
         ]);
         setCustomCrops(customCropsData);
         setSmartCrops(smartCropsData);
@@ -91,7 +93,7 @@ export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
     };
 
     fetchCrops();
-  }, [userId, isLoaded, supabase, getToken, toast]);
+  }, [userId, isLoaded, supabase, getToken, toast, session]);
 
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 }),

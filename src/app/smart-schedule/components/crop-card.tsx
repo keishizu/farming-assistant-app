@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CustomCrop } from "@/types/crop";
 import { format } from "date-fns";
@@ -21,68 +21,63 @@ export function CropCard({ crop, onUpdate, onDelete }: CropCardProps) {
   const { toast } = useToast();
 
   const handleDelete = () => {
+    console.log("CropCard handleDelete called for crop:", crop);
+    console.log("Crop ID:", crop.id);
+    
     if (window.confirm("この作物を削除してもよろしいですか？")) {
+      console.log("User confirmed deletion, calling onDelete with cropId:", crop.id);
       onDelete(crop.id);
       toast({
         title: "削除しました",
         description: "作物を削除しました",
       });
+    } else {
+      console.log("User cancelled deletion");
     }
   };
 
   return (
     <>
-      <Card className="p-4">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="text-lg font-semibold">{crop.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              定植日: {format(crop.startDate, "yyyy年MM月dd日", { locale: ja })}
-            </p>
+      <Card className="hover:shadow-lg transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center space-x-2">
+            <div className={`w-4 h-4 rounded-full ${crop.color.bg}`} />
+            <CardTitle className={`text-xl font-semibold ${crop.color.text}`}>{crop.name}</CardTitle>
           </div>
           <div className="flex space-x-2">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => setIsEditModalOpen(true)}
             >
-              <Edit className="w-4 h-4 mr-2" />
-              編集
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleDelete}
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              削除
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-        </div>
-
-        {crop.memo && (
-          <p className="text-sm text-muted-foreground mb-4">
-            {crop.memo}
-          </p>
-        )}
-
-        <div className="space-y-2">
-          {crop.tasks.map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center justify-between p-2 border rounded"
-            >
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              定植日: {format(crop.startDate, "yyyy年MM月dd日", { locale: ja })}
+            </p>
+            {crop.memo && (
               <div>
-                <p className="font-medium">{task.taskType}</p>
-                {task.memo && (
-                  <p className="text-sm text-muted-foreground">
-                    {task.memo}
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {crop.memo}
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              作業工程: {crop.tasks.length}件
+            </p>
+          </div>
+        </CardContent>
       </Card>
 
       <EditCropModal

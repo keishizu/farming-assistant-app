@@ -49,7 +49,11 @@ export function CropCard({ crop, onUpdate, onDelete }: CropCardProps) {
               定植日: {format(crop.startDate, "yyyy年MM月dd日", { locale: ja })}
             </p>
             {crop.memo && (
-              <p className="text-sm text-muted-foreground">{crop.memo}</p>
+              <div>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {crop.memo}
+                </p>
+              </div>
             )}
             <p className="text-sm text-muted-foreground">
               作業工程: {crop.tasks.length}件

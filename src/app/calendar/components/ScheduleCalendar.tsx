@@ -55,7 +55,14 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   };
 
   const getCropColor = (task: Task) => {
-    return task.color || "bg-gray-100";
+    if (!task.color) return "bg-gray-100";
+    // 文字色クラス（text-green-600）を背景色クラス（bg-green-100）に変換
+    const colorMatch = task.color.match(/text-(\w+)-(\d+)/);
+    if (colorMatch) {
+      const [, colorName, intensity] = colorMatch;
+      return `bg-${colorName}-100`;
+    }
+    return "bg-gray-100";
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -155,7 +162,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
                       return (
                         <div
                           key={task.id}
-                          className={`calendar-bar record-bar ${cropColor}`}
+                          className={`calendar-bar task-bar ${cropColor}`}
                           style={{
                             top: `${0.2 + (TASK_HEIGHT_REM * (index + 1))}rem`,
                             height: "1.25rem",

@@ -203,13 +203,25 @@ export default function HomeScreen() {
       }
       setDate(new Date());
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Failed to save record:", error);
+      
+      // JWT expired エラーの場合、セッション切れのメッセージを表示
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && 
+          (error.message.includes('JWT expired') || (error as any)?.code === 'PGRST301')) {
+        toast({
+          title: "セッション切れ",
+          description: "ページを再読み込みしてください。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "保存エラー",
         description: "作業記録の保存に失敗しました",
         variant: "destructive",
       });
-      console.error(error);
     }
   };
 

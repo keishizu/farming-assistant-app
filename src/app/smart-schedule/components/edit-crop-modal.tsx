@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
+import { cropBasicInfo } from "@/types/cropDescriptions";
 
 interface EditCropModalProps {
   isOpen: boolean;
@@ -118,9 +119,55 @@ export function EditCropModal({ isOpen, onClose, crop, onUpdate }: EditCropModal
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>さつまいもを編集</DialogTitle>
+          <DialogTitle>{crop.name}を編集</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cropName">作物名</Label>
+            <Input
+              id="cropName"
+              value={crop.name}
+              disabled
+              className="bg-gray-50"
+            />
+          </div>
+
+          
+
+          {/* 作物基本情報 */}
+          {cropBasicInfo[crop.name] && (
+            <div className="space-y-2">
+              <Label>作物の基本情報</Label>
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">難易度</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[crop.name].difficulty}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">植え付け適期</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[crop.name].plantingSeason}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">収穫時期</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[crop.name].harvestSeason}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">栽培期間</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[crop.name].growingPeriod}</p>
+                </div>
+              </div>
+              
+              {/* アドバイス */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-700 mb-2">アドバイス</p>
+                <p className="text-sm text-blue-600 whitespace-pre-wrap">
+                  {cropBasicInfo[crop.name].advice}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 定植日 */}
           <div className="space-y-2">
             <Label htmlFor="startDate">定植日</Label>
             <Input
