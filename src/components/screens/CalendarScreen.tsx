@@ -133,12 +133,12 @@ export default function CalendarScreen() {
             className="text-center"
           >
             <h1 className="text-2xl font-semibold text-green-800">農業カレンダー</h1>
-            <p className="text-gray-600">予定と実績を確認</p>
+            <p className="text-gray-600">提案と実績を確認</p>
           </motion.div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <motion.div variants={item}>
               <Card className="p-4 sm:p-6">
-                <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">予定カレンダー</h2>
+                <h2 className="text-xl font-semibold text-green-800 mb-4 sm:mb-6">提案カレンダー</h2>
                 <ScheduleCalendar tasks={tasks} />
               </Card>
             </motion.div>

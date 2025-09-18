@@ -29,7 +29,7 @@ export default function RootLayout({
     <ClerkProvider localization={jaJP}> 
       <html lang="ja">
         <body className={`${inter.className} bg-[#F7F9F4]`}>
-        <header className="flex justify-end items-center p-4 gap-4 h-16">
+        <header className="flex justify-end items-center p-4 gap-4 h-16 ml-20">
             <SignedOut>
               <SignInButton />
               <SignUpButton />
@@ -38,7 +38,7 @@ export default function RootLayout({
               <UserButton />
             </SignedIn>
           </header>
-          <main className="min-h-screen pb-16">
+          <main className="min-h-screen ml-20">
             {children}
           </main>
           <Navigation />

@@ -88,14 +88,14 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
       return;
     }
 
-    if (window.confirm("この予定を削除してもよろしいですか？")) {
+    if (window.confirm("この提案を削除してもよろしいですか？")) {
       if (onUpdate) {
         onUpdate(tasks.filter(t => t.id !== task.id));
       }
       
       toast({
         title: "削除しました",
-        description: "予定を削除しました",
+        description: "提案を削除しました",
       });
       
       setSelectedTask(null);
@@ -202,7 +202,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の予定
+                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の提案
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
@@ -229,7 +229,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
         <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>予定の詳細</DialogTitle>
+              <DialogTitle>提案の詳細</DialogTitle>
             </DialogHeader>
             {selectedTask && (
               <div className="space-y-4">
