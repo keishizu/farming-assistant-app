@@ -1,8 +1,31 @@
 "use client";
 
 import { SignIn } from "@clerk/nextjs";
+import { AuthForm } from "@/components/auth/AuthForm";
+import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
+  const router = useRouter();
+  const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
+
+  const handleSuccess = () => {
+    router.push('/');
+  };
+
+  if (useSupabaseAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F9F4]">
+        <div className="w-full max-w-md p-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-gray-900">農業アシスタント</h1>
+            <p className="mt-2 text-gray-600">アカウントにログイン</p>
+          </div>
+          <AuthForm onSuccess={handleSuccess} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F9F4]">
       <div className="w-full max-w-md p-8">

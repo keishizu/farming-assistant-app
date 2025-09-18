@@ -93,8 +93,8 @@ export const createSupabaseWithAuth = (token: string): SupabaseClient => {
   return authenticatedClient;
 };
 
-// クライアント（useSession連携）用フック
-export function useSupabaseWithAuth() {
+// クライアント（useSession連携）用フック - Clerk認証モード専用
+function useSupabaseWithAuthClerk() {
   const { session, isLoaded } = useSession();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
   const initializedRef = useRef(false);
@@ -244,4 +244,17 @@ export function checkTokenValidity(token: string): boolean {
 
 // 認証なしのクライアント（publicデータ用など）
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 認証システムに応じたuseSupabaseWithAuthフック
+export function useSupabaseWithAuth() {
+  const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
+  
+  // Supabase認証モードの場合はnullを返す
+  if (useSupabaseAuth) {
+    return null;
+  }
+  
+  // Clerk認証モードの場合はClerk用のフックを使用
+  return useSupabaseWithAuthClerk();
+}
 

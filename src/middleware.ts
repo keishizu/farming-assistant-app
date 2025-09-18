@@ -1,17 +1,117 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { isPublicRoute, isProtectedRoute, isAdminRoute, getRouteType } from '@/lib/auth-config'
 
+const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true'
 
-const isPublicRoute = createRouteMatcher([
+// Clerk用の設定
+const isClerkPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/clerk-webhook'
 ])
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect()
+// Supabase用の設定
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+// リダイレクトレスポンスを作成するヘルパー関数
+function createRedirectResponse(req: Request, path: string, message?: string) {
+  const url = new URL(path, req.url)
+  
+  // メッセージがある場合はクエリパラメータとして追加
+  if (message) {
+    url.searchParams.set('message', message)
   }
-})
+  
+  // 元のURLを保存（ログイン後に戻るため）
+  const originalUrl = new URL(req.url).pathname
+  if (originalUrl !== path) {
+    url.searchParams.set('redirectTo', originalUrl)
+  }
+  
+  return NextResponse.redirect(url)
+}
+
+// Supabase認証用のミドルウェア
+async function supabaseMiddleware(req: Request) {
+  const { pathname } = new URL(req.url)
+  
+  // パブリックルートのチェック
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next()
+  }
+  
+  // ルートの種類を取得
+  const routeType = getRouteType(pathname)
+  
+  // 管理者ルートの場合は追加の権限チェックが必要（将来の拡張用）
+  if (routeType === 'admin') {
+    // 現在は管理者権限の実装は省略
+    console.log('Admin route accessed:', pathname)
+  }
+  
+  try {
+    // リクエストヘッダーからAuthorizationトークンを取得
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    
+    if (token) {
+      // トークンが提供されている場合は検証
+      const supabase = createClient(supabaseUrl, supabaseAnonKey)
+      const { data: { user }, error } = await supabase.auth.getUser(token)
+      
+      if (error || !user) {
+        console.log('Token validation failed:', error?.message)
+        return createRedirectResponse(req, '/sign-in', '認証に失敗しました')
+      }
+      
+      // 認証成功
+      return NextResponse.next()
+    }
+    
+    // Cookieからセッション情報を取得
+    const cookieHeader = req.headers.get('cookie')
+    if (!cookieHeader) {
+      console.log('No cookies found, redirecting to sign-in')
+      return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+    }
+    
+    // SupabaseのセッションCookieをチェック
+    const sessionCookie = cookieHeader
+      .split(';')
+      .find(cookie => cookie.trim().startsWith('sb-'))
+    
+    if (!sessionCookie) {
+      console.log('No Supabase session cookie found, redirecting to sign-in')
+      return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+    }
+    
+    // セッションCookieが存在する場合は認証済みとみなす
+    // 詳細な検証はクライアントサイドで行う
+    return NextResponse.next()
+    
+  } catch (error) {
+    console.error('Supabase auth error:', error)
+    return createRedirectResponse(req, '/sign-in', '認証エラーが発生しました')
+  }
+}
+
+// メインのミドルウェア関数
+export default async function middleware(req: Request) {
+  if (useSupabaseAuth) {
+    return supabaseMiddleware(req)
+  } else {
+    // Clerkミドルウェアを直接呼び出し
+    const clerkHandler = clerkMiddleware(async (auth, req) => {
+      if (!isClerkPublicRoute(req)) {
+        await auth.protect()
+      }
+    })
+    return clerkHandler(req as any, {} as any)
+  }
+}
 
 export const config = {
   matcher: [
