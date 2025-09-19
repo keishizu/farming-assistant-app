@@ -1,7 +1,6 @@
 "use client";
 
 import { Home, Calendar, CheckSquare, MessageSquare, Sprout, Brain } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -10,7 +9,7 @@ export default function Navigation() {
   const pathname = usePathname();
 
   const links = [
-    { href: "/", icon: Home, label: "作業記録" },
+    { href: "/work-record", icon: Home, label: "作業記録" },
     { href: "/calendar", icon: Calendar, label: "カレンダー" },
     { href: "/todo", icon: CheckSquare, label: "タスク" },
     { href: "/crop-schedule", icon: Sprout, label: "カスタム" },

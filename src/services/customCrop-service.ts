@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { CustomCrop, CROP_COLOR_OPTIONS } from "@/types/crop";
-import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 // トークン更新を試行する関数
 const retryWithTokenRefresh = async <T>(
@@ -17,7 +17,7 @@ const retryWithTokenRefresh = async <T>(
       
       try {
         // 新しいトークンを取得
-        const newToken = await session.getToken({ template: "supabase" });
+        const newToken = session?.getToken ? await session.getToken({ template: "supabase" }) : null;
         if (newToken) {
           // 新しいトークンでSupabaseクライアントを更新
           await supabase.auth.setSession({ access_token: newToken, refresh_token: "" });
@@ -226,7 +226,7 @@ export const saveCustomCrops = async (
   if (!userId) throw new Error("User not authenticated");
 
   const operation = async () => {
-    const authenticatedSupabase = getAuthenticatedSupabaseClient(userId);
+    const authenticatedSupabase = getAuthenticatedClient();
 
     const dataToInsert = crops.map(crop => {
       const formattedData = {

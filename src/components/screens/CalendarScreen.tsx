@@ -6,8 +6,8 @@ import { getFarmRecords } from '@/services/farmRecord-service';
 import { generateTasksFromCrops } from '@/services/schedule-service';
 import { getCustomCrops } from '@/services/customCrop-service';
 import { getSmartCrops } from '@/services/smartCrop-service';
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/hooks/useAuth';
 import '@/app/calendar/calendar.css';
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -17,7 +17,6 @@ import { FarmRecord } from '@/types/farm';
 import { CustomCrop } from '@/types/crop';
 import { addDays, format } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
-import { useSession } from "@clerk/nextjs";
 
 const container = {
   hidden: { opacity: 0 },
@@ -35,9 +34,8 @@ const item = {
 };
 
 export default function CalendarScreen() {
-  const { userId, getToken } = useAuth();
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { user, session, getToken } = useAuth();
+  const userId = user?.id;
   const [records, setRecords] = useState<FarmRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,14 +44,14 @@ export default function CalendarScreen() {
   const { toast } = useToast();
 
   const loadData = useCallback(async () => {
-    if (!userId || !supabase) {
+    if (!userId) {
       setIsLoading(false);
       return;
     }
 
     try {
       setIsLoading(true);
-      const token = await getToken({ template: "supabase" });
+      const token = await getToken();
       if (!token) {
         console.error("認証トークンの取得に失敗しました");
         toast({
@@ -100,7 +98,7 @@ export default function CalendarScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, supabase, getToken, toast, session]);
+  }, [userId, getToken, toast, session]);
 
   useEffect(() => {
     loadData();

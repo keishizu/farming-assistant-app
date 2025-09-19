@@ -9,13 +9,13 @@ import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { getCustomCrops, saveCustomCrop, deleteCustomCrop } from "@/services/customCrop-service";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CropScheduleScreen() {
-  const { session, isLoaded: isSessionLoaded } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session, user, loading } = useAuth();
+  const userId = user?.id;
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -24,23 +24,19 @@ export default function CropScheduleScreen() {
   // マウント時にデータを読み込む
   useEffect(() => {
     const fetchCrops = async () => {
-      if (!isSessionLoaded) {
+      if (loading) {
         console.log("セッション読み込み中...");
         return;
       }
 
-      if (!session?.user?.id) {
-        console.log("セッションIDがありません");
+      if (!userId) {
+        console.log("ユーザーIDがありません");
         return;
       }
 
-      if (!supabase) {
-        console.log("Supabaseクライアントが初期化されていません");
-        return;
-      }
 
       try {
-        const token = await session.getToken({ template: "supabase" });
+        const token = session?.access_token;
         console.log("取得したトークン:", token ? "存在します" : "null");
 
         if (!token) {
@@ -48,7 +44,7 @@ export default function CropScheduleScreen() {
         }
 
         console.log("作物データの取得を開始します");
-        const savedCrops = await getCustomCrops(supabase, session.user.id, token, session);
+        const savedCrops = await getCustomCrops(supabase, userId, token, session);
         console.log("取得した作物データ:", savedCrops);
         setCrops(savedCrops);
         setIsMounted(true);
@@ -74,15 +70,15 @@ export default function CropScheduleScreen() {
     };
 
     fetchCrops();
-  }, [session?.user?.id, supabase, isSessionLoaded, toast]);
+  }, [userId, loading, toast]);
 
   // データが変更された時のみ保存
   useEffect(() => {
     const saveCrops = async () => {
-      if (!isMounted || !session?.user?.id || !supabase) return;
+      if (!isMounted || !userId) return;
 
       try {
-        await saveCustomCrop(supabase, session.user.id, crops, session);
+        await saveCustomCrop(supabase, userId, crops, session);
       } catch (error: any) {
         console.error("データの保存に失敗しました:", error);
         
@@ -102,9 +98,9 @@ export default function CropScheduleScreen() {
           console.warn("Duplicate key error detected, attempting to refresh data...");
           try {
             // データを再取得して状態を同期
-            const token = await session.getToken({ template: "supabase" });
+            const token = session?.access_token;
             if (token) {
-              const freshCrops = await getCustomCrops(supabase, session.user.id, token, session);
+              const freshCrops = await getCustomCrops(supabase, userId, token, session);
               setCrops(freshCrops);
               toast({
                 title: "警告",
@@ -126,7 +122,7 @@ export default function CropScheduleScreen() {
       }
     };
     saveCrops();
-  }, [crops, isMounted, session?.user?.id, supabase, toast]);
+  }, [crops, isMounted, userId, session, toast]);
 
   const handleAddCrop = (newCrop: CustomCrop) => {
     setCrops(prevCrops => [...prevCrops, newCrop]);
@@ -140,10 +136,10 @@ export default function CropScheduleScreen() {
   };
 
   const handleDeleteCrop = async (cropId: string) => {
-    if (!session?.user?.id || !supabase) return;
+    if (!userId) return;
 
     try {
-      await deleteCustomCrop(supabase, session.user.id, cropId, session);
+      await deleteCustomCrop(supabase, userId, cropId, session);
       setCrops(prevCrops => prevCrops.filter(crop => crop.id !== cropId));
       toast({
          description: "作物を削除しました",
@@ -180,7 +176,7 @@ export default function CropScheduleScreen() {
     }
   };
 
-  if (!isSessionLoaded || !supabase) {
+  if (loading) {
     return <div className="flex justify-center items-center h-screen">読み込み中...</div>;
   }
 

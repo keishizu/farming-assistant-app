@@ -13,8 +13,8 @@ import { CustomCrop } from "@/types/crop";
 import { format, parseISO } from "date-fns";
 import { getCustomCrops, saveCustomCrop } from "@/services/customCrop-service";
 import { getSmartCrops, saveSmartCrops } from "@/services/smartCrop-service";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 interface EditTaskModalProps {
   isOpen: boolean;
@@ -32,8 +32,10 @@ export function EditTaskModal({ isOpen, onClose, task, onUpdate }: EditTaskModal
   const [memo, setMemo] = useState(task.memo || "");
   const [cropNames, setCropNames] = useState<string[]>([]);
   const { toast } = useToast();
-  const { userId, isLoaded, getToken } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  const { user, getToken, loading } = useAuth();
+  const userId = user?.id;
+  const isLoaded = !loading;
+  const supabase = getAuthenticatedClient();
 
   useEffect(() => {
     const fetchCropNames = async () => {

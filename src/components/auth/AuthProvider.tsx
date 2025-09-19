@@ -1,31 +1,20 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-
-interface AuthContextType {
-  user: any;
-  session: any;
-  loading: boolean;
-  error: any;
-  isAuthenticated: boolean;
-}
+import { AuthContextType } from '@/lib/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, session, loading, error } = useAuth();
+  const auth = useAuth();
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      const authenticated = !!user && !!session;
-      setIsAuthenticated(authenticated);
-      
+    if (!auth.loading) {
       // 認証されていない場合はサインインページにリダイレクト
-      if (!authenticated && !loading) {
+      if (!auth.isAuthenticated && !auth.loading) {
         const currentPath = window.location.pathname;
         // パブリックルートの場合はリダイレクトしない
         const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback'];
@@ -37,16 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [user, session, loading, router]);
+  }, [auth.isAuthenticated, auth.loading, router]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      loading,
-      error,
-      isAuthenticated
-    }}>
+    <AuthContext.Provider value={auth}>
       {children}
     </AuthContext.Provider>
   );

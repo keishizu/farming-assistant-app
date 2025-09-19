@@ -19,7 +19,10 @@ interface AuthButtonsProps {
 }
 
 export function AuthButtons({ className }: AuthButtonsProps) {
-  const { user, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  // デバッグ用ログ
+  console.log('AuthButtons render:', { user: !!user, isAuthenticated, loading });
 
   if (loading) {
     return (
@@ -30,7 +33,7 @@ export function AuthButtons({ className }: AuthButtonsProps) {
     );
   }
 
-  if (user) {
+  if (isAuthenticated && user) {
     return (
       <div className={className}>
         <UserProfile showDropdown={true} />

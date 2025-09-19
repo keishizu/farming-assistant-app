@@ -3,13 +3,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { useEffect, useState, useCallback } from "react";
 import { User, Session, AuthError } from "@supabase/supabase-js";
+import { AuthState, AuthActions, AuthHookReturn, ProfileUpdateData } from "@/lib/types/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
 
 // Supabaseクライアント（セッション永続化設定付き）
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -17,27 +18,14 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-export interface AuthState {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  error: AuthError | null;
-}
+// 型定義は src/lib/types/auth.ts からインポート
 
-export interface AuthActions {
-  signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
-  signUp: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
-  signInWithGoogle: () => Promise<{ data: any; error: AuthError | null }>;
-  signOut: () => Promise<{ error: AuthError | null }>;
-  resetPassword: (email: string) => Promise<{ data: any; error: AuthError | null }>;
-  updateProfile: (updates: { display_name?: string; avatar_url?: string }) => Promise<{ data: any; error: AuthError | null }>;
-}
-
-export function useAuth(): AuthState & AuthActions {
+export function useAuth(): AuthHookReturn {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // 認証フラグがfalseの場合は何もしない
   const isAuthEnabled = useSupabaseAuth;
@@ -60,6 +48,7 @@ export function useAuth(): AuthState & AuthActions {
         console.log('Session loaded:', !!session, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
+        setIsAuthenticated(!!session && !!session.user);
         setError(null);
       }
     } catch (err) {
@@ -67,6 +56,7 @@ export function useAuth(): AuthState & AuthActions {
       setError(err as AuthError);
       setSession(null);
       setUser(null);
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -83,17 +73,39 @@ export function useAuth(): AuthState & AuthActions {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('Auth state changed:', event, session?.user?.id, 'isAuthenticated will be:', !!session && !!session.user);
         
         // セッションが失われた場合は明示的にログアウト状態にする
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           setSession(null);
+          setIsAuthenticated(false);
           setError(null);
+          // サインアウト時はログイン画面にリダイレクト
+          if (event === 'SIGNED_OUT') {
+            window.location.href = '/';
+          }
         } else {
           setSession(session);
           setUser(session?.user ?? null);
+          setIsAuthenticated(!!session && !!session.user);
           setError(null);
+          console.log('Auth state updated - isAuthenticated:', !!session && !!session.user);
+          // ログイン成功時は作業記録画面にリダイレクト
+          if (event === 'SIGNED_IN') {
+            console.log('SIGNED_IN event detected, current path:', window.location.pathname);
+            // パブリックルート（認証不要なページ）にいる場合のみリダイレクト
+            const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback'];
+            const isPublicRoute = publicRoutes.includes(window.location.pathname) || window.location.pathname.startsWith('/auth/');
+            
+            if (isPublicRoute) {
+              console.log('Redirecting to work-record from public route');
+              // 少し遅延を入れて、認証状態の更新を確実にする
+              setTimeout(() => {
+                window.location.href = '/work-record';
+              }, 200);
+            }
+          }
         }
         
         setLoading(false);
@@ -209,6 +221,9 @@ export function useAuth(): AuthState & AuthActions {
       
       if (error) {
         setError(error);
+      } else {
+        // サインアウト成功時はログイン画面にリダイレクト
+        window.location.href = '/';
       }
       
       return { error };
@@ -250,7 +265,7 @@ export function useAuth(): AuthState & AuthActions {
   }, [isAuthEnabled]);
 
   // プロフィール更新
-  const updateProfile = useCallback(async (updates: { display_name?: string; avatar_url?: string }) => {
+  const updateProfile = useCallback(async (updates: ProfileUpdateData) => {
     if (!isAuthEnabled || !user) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
@@ -277,16 +292,26 @@ export function useAuth(): AuthState & AuthActions {
     }
   }, [isAuthEnabled, user]);
 
+  // トークン取得
+  const getToken = useCallback(async (options?: { template?: string }) => {
+    if (!session?.access_token) {
+      throw new Error("No access token available");
+    }
+    return session.access_token;
+  }, [session?.access_token]);
+
   return {
     user,
     session,
     loading,
     error,
+    isAuthenticated,
     signIn,
     signUp,
     signInWithGoogle,
     signOut,
     resetPassword,
     updateProfile,
+    getToken,
   };
 }

@@ -10,23 +10,24 @@ import { Card } from "@/components/ui/card";
 import { saveSmartCrops, getSmartCrops, deleteSmartCrop } from "@/services/smartCrop-service";
 import { AddCropModal } from "@/app/smart-schedule/components/add-crop-modal";
 import { useToast } from "@/hooks/use-toast";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 export default function SmartScheduleScreen() {
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session, user, getToken } = useAuth();
+  const userId = user?.id;
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
+  const supabase = getAuthenticatedClient();
 
   useEffect(() => {
     const fetchCrops = async () => {
       if (!session?.user?.id || !supabase) return;
 
       try {
-        const token = await session.getToken({ template: "supabase" });
+        const token = await getToken({ template: "supabase" });
         if (!token) {
           throw new Error("認証トークンの取得に失敗しました");
         }
@@ -40,7 +41,7 @@ export default function SmartScheduleScreen() {
         if (error?.message?.includes('JWT expired') || error?.code === 'PGRST301') {
           try {
             console.log('JWT expired, attempting token refresh at component level...');
-            const newToken = await session.getToken({ template: "supabase" });
+            const newToken = await getToken({ template: "supabase" });
             if (newToken) {
               // 新しいトークンでクライアントを更新
               await supabase.auth.setSession({ access_token: newToken, refresh_token: "" });
@@ -105,7 +106,7 @@ export default function SmartScheduleScreen() {
         if (error?.message?.includes('JWT expired') || error?.code === 'PGRST301') {
           try {
             console.log('JWT expired, attempting token refresh at component level...');
-            const newToken = await session.getToken({ template: "supabase" });
+            const newToken = await getToken({ template: "supabase" });
             if (newToken) {
               // 新しいトークンでクライアントを更新
               await supabase.auth.setSession({ access_token: newToken, refresh_token: "" });

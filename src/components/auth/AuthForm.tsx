@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { GoogleSignInButton } from "./GoogleSignInButton";
 import { SupabaseGoogleSignInButton } from "./SupabaseGoogleSignInButton";
 
 interface AuthFormProps {
@@ -19,7 +18,6 @@ interface AuthFormProps {
 
 export function AuthForm({ onSuccess, className }: AuthFormProps) {
   const { signIn, signUp, signInWithGoogle, loading, error } = useAuth();
-  const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -119,23 +117,13 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
           <TabsContent value="signin" className="space-y-4">
             {/* Googleサインイン */}
             <div className="space-y-4">
-              {useSupabaseAuth ? (
-                <SupabaseGoogleSignInButton 
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  Googleでサインイン
-                </SupabaseGoogleSignInButton>
-              ) : (
-                <GoogleSignInButton 
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  Googleでサインイン
-                </GoogleSignInButton>
-              )}
+              <SupabaseGoogleSignInButton 
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="w-full"
+              >
+                Googleでサインイン
+              </SupabaseGoogleSignInButton>
               
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -212,23 +200,13 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
           <TabsContent value="signup" className="space-y-4">
             {/* Googleサインアップ */}
             <div className="space-y-4">
-              {useSupabaseAuth ? (
-                <SupabaseGoogleSignInButton 
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  Googleでサインアップ
-                </SupabaseGoogleSignInButton>
-              ) : (
-                <GoogleSignInButton 
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  Googleでサインアップ
-                </GoogleSignInButton>
-              )}
+              <SupabaseGoogleSignInButton 
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="w-full"
+              >
+                Googleでサインアップ
+              </SupabaseGoogleSignInButton>
               
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

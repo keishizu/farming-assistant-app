@@ -1,16 +1,6 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { isPublicRoute, isProtectedRoute, isAdminRoute, getRouteType } from '@/lib/auth-config'
-
-const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true'
-
-// Clerk用の設定
-const isClerkPublicRoute = createRouteMatcher([
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/api/clerk-webhook'
-])
 
 // Supabase用の設定
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -100,17 +90,7 @@ async function supabaseMiddleware(req: Request) {
 
 // メインのミドルウェア関数
 export default async function middleware(req: Request) {
-  if (useSupabaseAuth) {
-    return supabaseMiddleware(req)
-  } else {
-    // Clerkミドルウェアを直接呼び出し
-    const clerkHandler = clerkMiddleware(async (auth, req) => {
-      if (!isClerkPublicRoute(req)) {
-        await auth.protect()
-      }
-    })
-    return clerkHandler(req as any, {} as any)
-  }
+  return supabaseMiddleware(req)
 }
 
 export const config = {

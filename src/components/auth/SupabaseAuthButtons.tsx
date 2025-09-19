@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSupabaseAuthState } from "@/lib/supabase-auth";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LogOut, User } from "lucide-react";
 
 export function SupabaseAuthButtons() {
-  const { user, loading, signIn, signUp, signOut } = useSupabaseAuthState();
+  const { user, loading, signIn, signUp, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -84,7 +84,7 @@ export function SupabaseAuthButtons() {
 }
 
 export function SupabaseAuthModal() {
-  const { user, loading, signIn, signUp, signOut } = useSupabaseAuthState();
+  const { user, loading, signIn, signUp, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);

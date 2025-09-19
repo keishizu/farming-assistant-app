@@ -41,10 +41,9 @@ import { getCustomCrops } from "@/services/customCrop-service";
 import { getSmartCrops } from "@/services/smartCrop-service";
 import { deleteFarmRecord } from "@/services/farmRecord-service";
 import { CustomCrop } from "@/types/crop";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { getSignedImageUrl } from "@/services/upload-image";
-import { useSession } from "@clerk/nextjs";
 
 interface RecordCalendarProps {
   records: FarmRecord[];
@@ -52,9 +51,10 @@ interface RecordCalendarProps {
 }
 
 export function RecordCalendar({ records, onUpdate }: RecordCalendarProps) {
-  const { userId, isLoaded, getToken } = useAuth();
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { user, session, getToken, loading } = useAuth();
+  const userId = user?.id;
+  const isLoaded = !loading;
+  const supabase = getAuthenticatedClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<FarmRecord | null>(null);

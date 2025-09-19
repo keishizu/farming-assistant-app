@@ -20,8 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
 import { AVAILABLE_CROPS, DefaultCrop } from "@/types/default-crops";
 import { saveSmartCrops } from "@/services/smartCrop-service";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { cropBasicInfo } from "@/types/cropDescriptions";
 
 // 作物オブジェクトの生成を分離したユーティリティ関数
@@ -53,8 +53,8 @@ interface AddCropModalProps {
 }
 
 export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session } = useAuth();
+  const supabase = getAuthenticatedClient();
   const [selectedCrop, setSelectedCrop] = useState<DefaultCrop | null>(null);
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");

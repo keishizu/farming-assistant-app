@@ -4,13 +4,13 @@ import { toStableUUID } from '../utils/user-id';
 const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
 const ALLOWED_MIME_PREFIX = "image/";
 const EXPIRES_IN = 60 * 60; // 1時間（秒）
-const BUCKET = "clerk-uploads";
+const BUCKET = "farming-images";
 
 type DeleteStatus = "success" | "not_found" | "forbidden" | "error";
 
-// ClerkのユーザーIDから安定したUUIDを生成する関数
-function generateStableUUIDFromClerkId(clerkId: string): string {
-  return toStableUUID(clerkId);
+// SupabaseのユーザーIDから安定したUUIDを生成する関数
+function generateStableUUIDFromSupabaseId(userId: string): string {
+  return toStableUUID(userId);
 }
 
 export async function uploadImage(
@@ -31,7 +31,7 @@ export async function uploadImage(
     throw new Error("NO_EXTENSION");
   }
 
-  const stableUUID = generateStableUUIDFromClerkId(userId);
+  const stableUUID = generateStableUUIDFromSupabaseId(userId);
   const timestamp = Date.now();
   const fileName = `${stableUUID}-${timestamp}.${fileExtension}`;
   const filePath = `${userId}/${fileName}`;

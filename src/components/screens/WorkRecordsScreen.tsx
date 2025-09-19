@@ -26,7 +26,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { useAuthWrapper } from "@/hooks/useAuthWrapper";
 import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
 import { getCustomCrops } from "@/services/customCrop-service";
@@ -39,7 +39,7 @@ export default function HomeScreen() {
   
   // 統合認証フック
   const { userId, getToken: getTokenRaw, isLoaded } = useAuthWrapper();
-  const supabase = useSupabaseWithAuth();
+  const supabase = getAuthenticatedClient();
   
   // Supabase認証モードでは直接Supabaseクライアントを使用
   const [supabaseClient, setSupabaseClient] = useState(supabase);

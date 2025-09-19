@@ -16,7 +16,7 @@ const retryWithTokenRefresh = async <T>(
       
       try {
         // 新しいトークンを取得
-        const newToken = await session.getToken({ template: "supabase" });
+        const newToken = session?.getToken ? await session.getToken({ template: "supabase" }) : null;
         if (newToken) {
           // 新しいトークンでSupabaseクライアントを更新
           await supabase.auth.setSession({ access_token: newToken, refresh_token: "" });

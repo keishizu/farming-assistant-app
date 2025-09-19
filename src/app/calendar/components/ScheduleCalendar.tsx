@@ -23,8 +23,8 @@ import { ja } from "date-fns/locale";
 import { Task } from "@/types/calendar";
 import { EditTaskModal } from "./edit-task-modal";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 interface ScheduleCalendarProps {
   tasks: Task[];
@@ -37,8 +37,10 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const { toast } = useToast();
-  const { userId, isLoaded } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  const { user, loading } = useAuth();
+  const userId = user?.id;
+  const isLoaded = !loading;
+  const supabase = getAuthenticatedClient();
 
   const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
   const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
