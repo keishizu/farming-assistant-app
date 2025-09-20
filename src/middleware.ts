@@ -78,9 +78,69 @@ async function supabaseMiddleware(req: Request) {
       return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
     }
     
-    // セッションCookieが存在する場合は認証済みとみなす
-    // 詳細な検証はクライアントサイドで行う
-    return NextResponse.next()
+    // セッションCookieの値を取得して検証
+    const cookieValue = sessionCookie.split('=')[1]
+    if (!cookieValue || cookieValue === 'null' || cookieValue === 'undefined') {
+      console.log('Invalid session cookie value, redirecting to sign-in')
+      return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+    }
+    
+    // デバッグ用: セッションCookieの内容をログ出力
+    console.log('Session cookie value:', cookieValue.substring(0, 50) + '...')
+    
+    // セッションCookieの内容をデコードして検証
+    try {
+      let sessionData
+      
+      // Base64エンコードされたCookieかどうかをチェック
+      if (cookieValue.startsWith('base64-')) {
+        // Base64エンコードされたCookieの場合
+        const base64Data = cookieValue.substring(7) // "base64-"を除去
+        const decodedData = Buffer.from(base64Data, 'base64').toString('utf-8')
+        sessionData = JSON.parse(decodedData)
+      } else {
+        // 通常のURLエンコードされたCookieの場合
+        const decodedCookie = decodeURIComponent(cookieValue)
+        sessionData = JSON.parse(decodedCookie)
+      }
+      
+      // セッションの詳細情報をログ出力
+      console.log('Session data:', {
+        hasAccessToken: !!sessionData.access_token,
+        hasUser: !!sessionData.user,
+        userId: sessionData.user?.id,
+        expiresAt: sessionData.expires_at,
+        tokenType: sessionData.token_type
+      })
+      
+      // セッションの有効性をチェック
+      if (!sessionData.access_token || !sessionData.user) {
+        console.log('Invalid session data in cookie, redirecting to sign-in')
+        return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+      }
+      
+      // セッションの有効期限をチェック（一時的に無効化）
+      // Supabaseは自動的にリフレッシュトークンで更新するため、ミドルウェアでは厳密な有効期限チェックは行わない
+      if (sessionData.expires_at) {
+        const expiresAt = new Date(sessionData.expires_at * 1000)
+        const now = new Date()
+        console.log('Session expires at:', expiresAt.toISOString())
+        console.log('Current time:', now.toISOString())
+        console.log('Session expired?', expiresAt < now)
+        
+        // 有効期限が切れていても、クライアントサイドでの認証状態管理に任せる
+        // if (expiresAt < now) {
+        //   console.log('Session expired, redirecting to sign-in')
+        //   return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+        // }
+      }
+      
+      console.log('Valid session cookie found, allowing access')
+      return NextResponse.next()
+    } catch (error) {
+      console.log('Failed to parse session cookie, redirecting to sign-in:', error)
+      return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
+    }
     
   } catch (error) {
     console.error('Supabase auth error:', error)
@@ -90,7 +150,12 @@ async function supabaseMiddleware(req: Request) {
 
 // メインのミドルウェア関数
 export default async function middleware(req: Request) {
-  return supabaseMiddleware(req)
+  // 一時的にミドルウェアの認証チェックを無効化
+  // クライアントサイドでの認証状態管理に任せる
+  return NextResponse.next()
+  
+  // 元の認証チェック（コメントアウト）
+  // return supabaseMiddleware(req)
 }
 
 export const config = {

@@ -1,22 +1,14 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import { useEffect, useState, useCallback } from "react";
 import { User, Session, AuthError } from "@supabase/supabase-js";
 import { AuthState, AuthActions, AuthHookReturn, ProfileUpdateData } from "@/lib/types/auth";
+import { getSupabaseClient } from "@/lib/supabase";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
+const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH !== 'false';
 
-// Supabaseクライアント（セッション永続化設定付き）
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-});
+// シングルトンのSupabaseクライアントを使用
+const supabase = getSupabaseClient();
 
 // 型定義は src/lib/types/auth.ts からインポート
 
@@ -30,38 +22,6 @@ export function useAuth(): AuthHookReturn {
   // 認証フラグがfalseの場合は何もしない
   const isAuthEnabled = useSupabaseAuth;
 
-  // 現在のセッションを取得
-  const getSession = useCallback(async () => {
-    if (!isAuthEnabled) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Session error:', error);
-        setError(error);
-        setSession(null);
-        setUser(null);
-      } else {
-        console.log('Session loaded:', !!session, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsAuthenticated(!!session && !!session.user);
-        setError(null);
-      }
-    } catch (err) {
-      console.error('Session error:', err);
-      setError(err as AuthError);
-      setSession(null);
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthEnabled]);
-
   // 認証状態の変更を監視
   useEffect(() => {
     if (!isAuthEnabled) {
@@ -69,19 +29,53 @@ export function useAuth(): AuthHookReturn {
       return;
     }
 
-    getSession();
+    let mounted = true;
+
+    // 初期セッション取得
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (mounted) {
+          if (error) {
+            console.error('Session error:', error);
+            setError(error);
+            setSession(null);
+            setUser(null);
+            setIsAuthenticated(false);
+          } else {
+            console.log('Initial session loaded:', !!session, session?.user?.id);
+            setSession(session);
+            setUser(session?.user ?? null);
+            setIsAuthenticated(!!session && !!session.user);
+            setError(null);
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          console.error('Session error:', err);
+          setError(err as AuthError);
+          setSession(null);
+          setUser(null);
+          setIsAuthenticated(false);
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id, 'isAuthenticated will be:', !!session && !!session.user);
+        if (!mounted) return;
         
-        // セッションが失われた場合は明示的にログアウト状態にする
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           setSession(null);
           setIsAuthenticated(false);
           setError(null);
-          // サインアウト時はログイン画面にリダイレクト
           if (event === 'SIGNED_OUT') {
             window.location.href = '/';
           }
@@ -90,17 +84,14 @@ export function useAuth(): AuthHookReturn {
           setUser(session?.user ?? null);
           setIsAuthenticated(!!session && !!session.user);
           setError(null);
-          console.log('Auth state updated - isAuthenticated:', !!session && !!session.user);
-          // ログイン成功時は作業記録画面にリダイレクト
+          
           if (event === 'SIGNED_IN') {
             console.log('SIGNED_IN event detected, current path:', window.location.pathname);
-            // パブリックルート（認証不要なページ）にいる場合のみリダイレクト
             const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback'];
             const isPublicRoute = publicRoutes.includes(window.location.pathname) || window.location.pathname.startsWith('/auth/');
             
             if (isPublicRoute) {
               console.log('Redirecting to work-record from public route');
-              // 少し遅延を入れて、認証状態の更新を確実にする
               setTimeout(() => {
                 window.location.href = '/work-record';
               }, 200);
@@ -113,12 +104,12 @@ export function useAuth(): AuthHookReturn {
     );
 
     return () => {
-      console.log('Cleaning up auth subscription');
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, [getSession, isAuthEnabled]);
+  }, [isAuthEnabled]);
 
-  // サインイン
+  // ログイン
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
@@ -147,7 +138,7 @@ export function useAuth(): AuthHookReturn {
     }
   }, [isAuthEnabled]);
 
-  // サインアップ
+  // 新規登録
   const signUp = useCallback(async (email: string, password: string) => {
     if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
@@ -160,10 +151,34 @@ export function useAuth(): AuthHookReturn {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/work-record`
+        }
       });
       
       if (error) {
         setError(error);
+        return { data, error };
+      }
+      
+      // 新規登録成功時の処理
+      if (data.user) {
+        // セッションが作成された場合（メール確認が不要な場合）
+        if (data.session) {
+          console.log('User created and session established immediately');
+          setUser(data.user);
+          setSession(data.session);
+          setIsAuthenticated(true);
+          return { data, error: null };
+        } else {
+          // メール確認が必要な場合
+          console.log('Email confirmation required');
+          return { 
+            data, 
+            error: null,
+            message: '確認メールを送信しました。メールボックスを確認してください。'
+          };
+        }
       }
       
       return { data, error };
@@ -176,7 +191,7 @@ export function useAuth(): AuthHookReturn {
     }
   }, [isAuthEnabled]);
 
-  // Googleでサインイン
+  // Googleでログイン
   const signInWithGoogle = useCallback(async () => {
     if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };

@@ -13,7 +13,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!auth.loading) {
-      // 認証されていない場合はサインインページにリダイレクト
+      // 認証されていない場合はログインページにリダイレクト
       if (!auth.isAuthenticated && !auth.loading) {
         const currentPath = window.location.pathname;
         // パブリックルートの場合はリダイレクトしない

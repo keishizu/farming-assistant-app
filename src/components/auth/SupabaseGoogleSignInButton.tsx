@@ -30,7 +30,7 @@ export function SupabaseGoogleSignInButton({
     setIsLoading(true);
     
     try {
-      // Supabase Google OAuthでサインイン
+      // Supabase Google OAuthでログイン
       const { createClient } = await import("@supabase/supabase-js");
       
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -85,7 +85,7 @@ export function SupabaseGoogleSignInButton({
           />
         </svg>
       )}
-      {children || `Googleで${mode === "sign-in" ? "サインイン" : "サインアップ"}`}
+      {children || `Googleで${mode === "sign-in" ? "ログイン" : "新規登録"}`}
     </Button>
   );
 }

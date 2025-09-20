@@ -7,7 +7,7 @@ import { generateTasksFromCrops } from '@/services/schedule-service';
 import { getCustomCrops } from '@/services/customCrop-service';
 import { getSmartCrops } from '@/services/smartCrop-service';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/hooks/useAuth';
+import { getSupabaseClient } from '@/lib/supabase';
 import '@/app/calendar/calendar.css';
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -36,6 +36,7 @@ const item = {
 export default function CalendarScreen() {
   const { user, session, getToken } = useAuth();
   const userId = user?.id;
+  const supabase = getSupabaseClient();
   const [records, setRecords] = useState<FarmRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);

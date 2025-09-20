@@ -34,11 +34,15 @@ export function SupabaseAuthButtons() {
     setIsLoading(true);
     setError(null);
 
-    const { error } = await signUp(email, password);
-    if (error) {
-      setError(error.message);
+    const result = await signUp(email, password);
+    if (result.error) {
+      setError(result.error.message);
+    } else if (result.message) {
+      setError(result.message);
     } else {
-      setError("確認メールを送信しました。メールボックスを確認してください。");
+      // メール確認が不要で即座に認証された場合
+      setError("アカウントが作成されました。");
+      // 認証状態の変更イベントが発火するので、手動でリダイレクトは不要
     }
     setIsLoading(false);
   };
@@ -74,10 +78,10 @@ export function SupabaseAuthButtons() {
   return (
     <div className="flex items-center gap-2">
       <Button variant="outline" size="sm" onClick={() => window.open('/sign-in', '_blank')}>
-        サインイン
+        ログイン
       </Button>
       <Button size="sm" onClick={() => window.open('/sign-up', '_blank')}>
-        サインアップ
+        新規登録
       </Button>
     </div>
   );
@@ -156,14 +160,14 @@ export function SupabaseAuthModal() {
       <CardHeader>
         <CardTitle>認証</CardTitle>
         <CardDescription>
-          アカウントにサインインまたは新規登録してください
+          アカウントにログインまたは新規登録してください
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">サインイン</TabsTrigger>
-            <TabsTrigger value="signup">サインアップ</TabsTrigger>
+            <TabsTrigger value="signin">ログイン</TabsTrigger>
+            <TabsTrigger value="signup">新規登録</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin">
@@ -195,7 +199,7 @@ export function SupabaseAuthModal() {
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                サインイン
+                ログイン
               </Button>
             </form>
           </TabsContent>
@@ -229,7 +233,7 @@ export function SupabaseAuthModal() {
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                サインアップ
+                新規登録
               </Button>
             </form>
           </TabsContent>

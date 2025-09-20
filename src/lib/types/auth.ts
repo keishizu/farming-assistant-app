@@ -12,7 +12,7 @@ export interface AuthState {
 // 認証アクションの型定義
 export interface AuthActions {
   signIn: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
-  signUp: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
+  signUp: (email: string, password: string) => Promise<{ data: any; error: AuthError | null; message?: string }>;
   signInWithGoogle: () => Promise<{ data: any; error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -52,4 +52,5 @@ export type AuthErrorType = AuthError | null;
 export interface AuthResponse<T = any> {
   data: T | null;
   error: AuthError | null;
+  message?: string;
 }

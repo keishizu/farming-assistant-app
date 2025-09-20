@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Navigation from '@/components/Navigation';
 import { AuthButtons } from '@/components/auth/AuthButtons';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { ConditionalLayout } from '@/components/ConditionalLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,13 +23,9 @@ export default function RootLayout({
     <html lang="ja">
       <body className={`${inter.className} bg-[#F7F9F4]`}>
         <AuthProvider>
-          <header className="flex justify-end items-center p-4 gap-4 h-16 ml-20">
-            <AuthButtons />
-          </header>
-          <main className="min-h-screen ml-20">
+          <ConditionalLayout>
             {children}
-          </main>
-          <Navigation />
+          </ConditionalLayout>
           <Toaster />
         </AuthProvider>
       </body>

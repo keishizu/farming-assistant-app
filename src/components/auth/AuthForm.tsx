@@ -72,11 +72,16 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
       return;
     }
 
-    const { error } = await signUp(email, password);
-    if (error) {
-      setFormError(error.message);
+    const result = await signUp(email, password);
+    if (result.error) {
+      setFormError(result.error.message);
+    } else if (result.message) {
+      setFormError(result.message);
     } else {
-      setFormError("確認メールを送信しました。メールボックスを確認してください。");
+      // メール確認が不要で即座に認証された場合
+      setFormError("アカウントが作成されました。");
+      // 認証状態の変更イベントが発火するので、手動でリダイレクトは不要
+      // onSuccess?.() は認証状態変更時に自動的に呼ばれる
     }
     setIsLoading(false);
   };
@@ -90,7 +95,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
       setFormError(error.message);
       setIsLoading(false);
     } else {
-      // Googleサインイン成功時は少し待ってからリダイレクト
+      // Googleログイン成功時は少し待ってからリダイレクト
       setTimeout(() => {
         onSuccess?.();
       }, 100);
@@ -100,29 +105,28 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
   const displayError = formError || error?.message;
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>認証</CardTitle>
-        <CardDescription>
-          アカウントにサインインまたは新規登録してください
+    <Card className={`${className} border-green-200 shadow-lg`}>
+      <CardHeader className="text-center">
+        <CardDescription className="text-green-700">
+          アカウントにログインまたは新規登録してください
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">サインイン</TabsTrigger>
-            <TabsTrigger value="signup">サインアップ</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 bg-green-50">
+            <TabsTrigger value="signin" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">ログイン</TabsTrigger>
+            <TabsTrigger value="signup" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">新規登録</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin" className="space-y-4">
-            {/* Googleサインイン */}
+            {/* Googleログイン */}
             <div className="space-y-4">
               <SupabaseGoogleSignInButton 
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
                 className="w-full"
               >
-                Googleでサインイン
+                Googleでログイン
               </SupabaseGoogleSignInButton>
               
               <div className="relative">
@@ -137,7 +141,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
               </div>
             </div>
 
-            {/* メール/パスワードサインイン */}
+            {/* メール/パスワードログイン */}
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signin-email">メールアドレス</Label>
@@ -185,27 +189,27 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
               </div>
 
               {displayError && (
-                <Alert>
-                  <AlertDescription>{displayError}</AlertDescription>
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertDescription className="text-red-700">{displayError}</AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                サインイン
+                ログイン
               </Button>
             </form>
           </TabsContent>
           
           <TabsContent value="signup" className="space-y-4">
-            {/* Googleサインアップ */}
+            {/* Google新規登録 */}
             <div className="space-y-4">
               <SupabaseGoogleSignInButton 
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
                 className="w-full"
               >
-                Googleでサインアップ
+                Googleで新規登録
               </SupabaseGoogleSignInButton>
               
               <div className="relative">
@@ -220,7 +224,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
               </div>
             </div>
 
-            {/* メール/パスワードサインアップ */}
+            {/* メール/パスワード新規登録 */}
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-email">メールアドレス</Label>
@@ -297,14 +301,14 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
               </div>
 
               {displayError && (
-                <Alert>
-                  <AlertDescription>{displayError}</AlertDescription>
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertDescription className="text-red-700">{displayError}</AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                サインアップ
+                新規登録
               </Button>
             </form>
           </TabsContent>

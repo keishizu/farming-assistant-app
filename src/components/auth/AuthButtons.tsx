@@ -47,14 +47,14 @@ export function AuthButtons({ className }: AuthButtonsProps) {
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
             <LogIn className="h-4 w-4 mr-2" />
-            サインイン
+            ログイン
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>認証</DialogTitle>
             <DialogDescription>
-              アカウントにサインインまたは新規登録してください
+              アカウントにログインまたは新規登録してください
             </DialogDescription>
           </DialogHeader>
           <AuthForm />
@@ -65,7 +65,7 @@ export function AuthButtons({ className }: AuthButtonsProps) {
         <DialogTrigger asChild>
           <Button size="sm">
             <UserPlus className="h-4 w-4 mr-2" />
-            サインアップ
+            新規登録
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">

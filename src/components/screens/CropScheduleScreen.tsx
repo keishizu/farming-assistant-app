@@ -10,12 +10,13 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { getCustomCrops, saveCustomCrop, deleteCustomCrop } from "@/services/customCrop-service";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/hooks/useAuth";
+import { getSupabaseClient } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CropScheduleScreen() {
   const { session, user, loading } = useAuth();
   const userId = user?.id;
+  const supabase = getSupabaseClient();
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
