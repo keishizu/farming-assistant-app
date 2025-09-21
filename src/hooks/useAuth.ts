@@ -41,6 +41,8 @@ export function useAuth(): AuthHookReturn {
 
     // 初期セッション取得
     const initializeAuth = async () => {
+      if (!supabase) return;
+      
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (mounted) {
@@ -73,6 +75,8 @@ export function useAuth(): AuthHookReturn {
 
     initializeAuth();
 
+    if (!supabase) return;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -289,7 +293,7 @@ export function useAuth(): AuthHookReturn {
 
   // プロフィール更新
   const updateProfile = useCallback(async (updates: ProfileUpdateData) => {
-    if (!isAuthEnabled || !user) {
+    if (!isAuthEnabled || !user || !supabase) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
 
