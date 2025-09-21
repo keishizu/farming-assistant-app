@@ -7,8 +7,16 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH !== 'false';
 
-// シングルトンのSupabaseクライアントを使用
-const supabase = getSupabaseClient();
+// 環境変数のチェック
+const hasValidSupabaseConfig = !!(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && 
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key'
+);
+
+// シングルトンのSupabaseクライアントを使用（環境変数が有効な場合のみ）
+const supabase = hasValidSupabaseConfig ? getSupabaseClient() : null;
 
 // 型定義は src/lib/types/auth.ts からインポート
 
@@ -24,7 +32,7 @@ export function useAuth(): AuthHookReturn {
 
   // 認証状態の変更を監視
   useEffect(() => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       setLoading(false);
       return;
     }
@@ -111,7 +119,7 @@ export function useAuth(): AuthHookReturn {
 
   // ログイン
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
 
@@ -140,7 +148,7 @@ export function useAuth(): AuthHookReturn {
 
   // 新規登録
   const signUp = useCallback(async (email: string, password: string) => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
 
@@ -193,7 +201,7 @@ export function useAuth(): AuthHookReturn {
 
   // Googleでログイン
   const signInWithGoogle = useCallback(async () => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
 
@@ -224,7 +232,7 @@ export function useAuth(): AuthHookReturn {
 
   // サインアウト
   const signOut = useCallback(async () => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       return { error: { message: '認証が無効になっています' } as AuthError };
     }
 
@@ -253,7 +261,7 @@ export function useAuth(): AuthHookReturn {
 
   // パスワードリセット
   const resetPassword = useCallback(async (email: string) => {
-    if (!isAuthEnabled) {
+    if (!isAuthEnabled || !supabase) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
     }
 
