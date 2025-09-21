@@ -3,7 +3,9 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import Navigation from '@/components/Navigation';
+import { AuthButtons } from '@/components/auth/AuthButtons';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { ConditionalLayout } from '@/components/ConditionalLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,10 +23,9 @@ export default function RootLayout({
     <html lang="ja">
       <body className={`${inter.className} bg-[#F7F9F4]`}>
         <AuthProvider>
-          <main className="min-h-screen pb-16">
+          <ConditionalLayout>
             {children}
-          </main>
-          <Navigation />
+          </ConditionalLayout>
           <Toaster />
         </AuthProvider>
       </body>

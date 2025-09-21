@@ -1,5 +1,5 @@
-import HomeScreen from '@/components/screens/WorkRecordsScreen';
+import WorkRecordsScreen from '@/components/screens/WorkRecordsScreen';
 
-export default function Home() {
-  return <HomeScreen />;
+export default function WorkRecordPage() {
+  return <WorkRecordsScreen />;
 }

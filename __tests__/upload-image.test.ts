@@ -60,7 +60,7 @@ describe('upload-image', () => {
 
       const result = await uploadImage(mockFile, mockSupabase as any, mockUserId);
 
-      expect(mockSupabase.storage.from).toHaveBeenCalledWith('clerk-uploads');
+      expect(mockSupabase.storage.from).toHaveBeenCalledWith('farming-images');
       expect(mockUpload).toHaveBeenCalledWith(
         expect.stringMatching(/^test-user-id\/stable-uuid-\d+\.jpg$/),
         mockFile,
@@ -124,7 +124,7 @@ describe('upload-image', () => {
 
       const result = await getSignedImageUrl(mockSupabase as any, 'test-path');
 
-      expect(mockSupabase.storage.from).toHaveBeenCalledWith('clerk-uploads');
+      expect(mockSupabase.storage.from).toHaveBeenCalledWith('farming-images');
       expect(mockCreateSignedUrl).toHaveBeenCalledWith('test-path', 3600);
       expect(result).toBe('https://example.com/signed-url');
     });
@@ -163,7 +163,7 @@ describe('upload-image', () => {
 
       await deleteImage(mockSupabase as any, 'test-path');
 
-      expect(mockSupabase.storage.from).toHaveBeenCalledWith('clerk-uploads');
+      expect(mockSupabase.storage.from).toHaveBeenCalledWith('farming-images');
       expect(mockRemove).toHaveBeenCalledWith(['test-path']);
     });
 

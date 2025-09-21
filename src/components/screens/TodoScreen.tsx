@@ -6,10 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 import { Task } from "@/types/calendar";
 import { getTasksForDate } from "@/services/schedule-service";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/hooks/useAuth";
 import { getCompletedTasks, saveCompletedTasks as saveTasksToSupabase } from "@/services/task-service";
-import { useSupabaseWithAuth } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 const container = {
   hidden: { opacity: 0 },
@@ -27,18 +27,19 @@ const item = {
 };
 
 export default function TodoScreen() {
-  const { userId, isSignedIn, getToken } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  const { user, isAuthenticated, getToken } = useAuth();
+  const userId = user?.id;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [originalOrder, setOriginalOrder] = useState<string[]>([]);
   const { toast } = useToast();
+  const supabase = getAuthenticatedClient();
 
   useEffect(() => {
-    if (!userId || !isSignedIn || !supabase) return;
+    if (!userId || !isAuthenticated) return;
 
     const loadTasks = async () => {
       try {
-        const token = await getToken({ template: "supabase" });
+        const token = await getToken();
         if (!token) {
           console.error("認証トークンの取得に失敗しました");
           toast({
@@ -80,8 +81,20 @@ export default function TodoScreen() {
         });
 
         setTasks(sortedWithStatus);
-      } catch (error) {
+      } catch (error: any) {
         console.error("タスクの読み込みに失敗しました:", error);
+        
+        // JWT expired エラーの場合、セッション切れのメッセージを表示
+        if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && 
+            (error.message.includes('JWT expired') || (error as any)?.code === 'PGRST301')) {
+          toast({
+            title: "セッション切れ",
+            description: "ページを再読み込みしてください。",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
           title: "エラー",
           description: "タスクの読み込みに失敗しました",
@@ -91,7 +104,7 @@ export default function TodoScreen() {
     };
 
     loadTasks();
-  }, [userId, isSignedIn, supabase, getToken, toast]);
+  }, [userId, isAuthenticated, supabase, getToken, toast]);
 
   const handleTaskComplete = async (taskId: string) => {
     setTasks(prev => {
@@ -157,7 +170,7 @@ export default function TodoScreen() {
                       task.completed ? "line-through text-gray-500" : ""
                     }`}
                   >
-                    <span className={`inline-block ${task.completed ? "text-gray-500" : task.color}`}>
+                    <span className={`inline-block ${task.completed ? "text-gray-500" : task.color || "text-green-600"}`}>
                       {task.cropName}
                     </span>
                     <span className="text-foreground">{`：${task.taskName}作業`}</span>

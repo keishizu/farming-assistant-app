@@ -23,8 +23,8 @@ import { ja } from "date-fns/locale";
 import { Task } from "@/types/calendar";
 import { EditTaskModal } from "./edit-task-modal";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 interface ScheduleCalendarProps {
   tasks: Task[];
@@ -37,8 +37,10 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const { toast } = useToast();
-  const { userId, isLoaded } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  const { user, loading } = useAuth();
+  const userId = user?.id;
+  const isLoaded = !loading;
+  const supabase = getAuthenticatedClient();
 
   const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
   const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
@@ -55,7 +57,14 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
   };
 
   const getCropColor = (task: Task) => {
-    return task.color || "bg-gray-100";
+    if (!task.color) return "bg-gray-100";
+    // 文字色クラス（text-green-600）を背景色クラス（bg-green-100）に変換
+    const colorMatch = task.color.match(/text-(\w+)-(\d+)/);
+    if (colorMatch) {
+      const [, colorName, intensity] = colorMatch;
+      return `bg-${colorName}-100`;
+    }
+    return "bg-gray-100";
   };
 
   const handleUpdateTask = (updatedTask: Task) => {
@@ -81,14 +90,14 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
       return;
     }
 
-    if (window.confirm("この予定を削除してもよろしいですか？")) {
+    if (window.confirm("この提案を削除してもよろしいですか？")) {
       if (onUpdate) {
         onUpdate(tasks.filter(t => t.id !== task.id));
       }
       
       toast({
         title: "削除しました",
-        description: "予定を削除しました",
+        description: "提案を削除しました",
       });
       
       setSelectedTask(null);
@@ -155,7 +164,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
                       return (
                         <div
                           key={task.id}
-                          className={`calendar-bar record-bar ${cropColor}`}
+                          className={`calendar-bar task-bar ${cropColor}`}
                           style={{
                             top: `${0.2 + (TASK_HEIGHT_REM * (index + 1))}rem`,
                             height: "1.25rem",
@@ -195,7 +204,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の予定
+                {format(selectedDate, "yyyy年MM月dd日", { locale: ja })}の提案
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
@@ -222,7 +231,7 @@ export function ScheduleCalendar({ tasks, onUpdate }: ScheduleCalendarProps) {
         <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>予定の詳細</DialogTitle>
+              <DialogTitle>提案の詳細</DialogTitle>
             </DialogHeader>
             {selectedTask && (
               <div className="space-y-4">

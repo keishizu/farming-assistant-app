@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -26,17 +26,28 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { getAuthenticatedClient } from "@/lib/supabase";
+import { useAuthWrapper } from "@/hooks/useAuthWrapper";
 import { uploadImage, getSignedImageUrl } from "@/services/upload-image";
 import { getCustomCrops } from "@/services/customCrop-service";
 import { getSmartCrops } from "@/services/smartCrop-service";
 import { CustomCrop } from "@/types/crop";
 
 export default function HomeScreen() {
-  // すべてのフックを先頭で宣言
-  const { userId, getToken } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  // 認証システムの切り替え
+  const useSupabaseAuthMode = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
+  
+  // 統合認証フック
+  const { userId, getToken: getTokenRaw, isLoaded } = useAuthWrapper();
+  const supabase = getAuthenticatedClient();
+  
+  // Supabase認証モードでは直接Supabaseクライアントを使用
+  const [supabaseClient, setSupabaseClient] = useState(supabase);
+  
+  // getToken関数をメモ化
+  const getToken = useCallback(async (options?: { template?: string }) => {
+    return getTokenRaw(options);
+  }, [getTokenRaw]);
   const [crop, setCrop] = useState("");
   const [task, setTask] = useState("");
   const [memo, setMemo] = useState("");
@@ -51,11 +62,22 @@ export default function HomeScreen() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // Supabaseクライアントの初期化
+  useEffect(() => {
+    if (useSupabaseAuthMode) {
+      import("@/lib/supabase").then(({ supabase: supabaseClient }) => {
+        setSupabaseClient(supabaseClient);
+      });
+    }
+  }, [useSupabaseAuthMode]);
+
   useEffect(() => {
     if (!userId) return;
     const fetchCropNames = async () => {
       try {
-        const token = await getToken({ template: "supabase" });
+        const token = useSupabaseAuthMode ? 
+          await getToken() : 
+          await getToken({ template: "supabase" });
         if (!token) throw new Error("Token not found");
         const names = await getCropNames(userId, token);
         setCropNames(names);
@@ -67,14 +89,16 @@ export default function HomeScreen() {
   }, [userId, getToken]);
 
   useEffect(() => {
-    if (!userId || !supabase) return;
+    if (!userId || !supabaseClient) return;
     const fetchCrops = async () => {
       try {
-        const token = await getToken({ template: "supabase" });
+        const token = useSupabaseAuthMode ? 
+          await getToken() : 
+          await getToken({ template: "supabase" });
         if (!token) throw new Error("Token not found");
         const [customCropsData, smartCropsData] = await Promise.all([
-          getCustomCrops(supabase, userId, token),
-          getSmartCrops(supabase, userId),
+          getCustomCrops(supabaseClient, userId, token),
+          getSmartCrops(supabaseClient, userId),
         ]);
         setCustomCrops(customCropsData);
         setSmartCrops(smartCropsData);
@@ -83,17 +107,19 @@ export default function HomeScreen() {
       }
     };
     fetchCrops();
-  }, [userId, getToken, supabase]);
+  }, [userId, getToken, supabaseClient]);
 
   useEffect(() => {
-    if (!userId || !crop || !supabase) {
+    if (!userId || !crop || !supabaseClient) {
       setAvailableTaskTypes([]);
       setTask("");
       return;
     }
     const fetchTaskTypes = async () => {
       try {
-        const token = await getToken({ template: "supabase" });
+        const token = useSupabaseAuthMode ? 
+          await getToken() : 
+          await getToken({ template: "supabase" });
         if (!token) throw new Error("Token not found");
         const taskTypes = await getTaskTypesForCrop(userId, crop, token);
         setAvailableTaskTypes(taskTypes);
@@ -103,7 +129,7 @@ export default function HomeScreen() {
       }
     };
     fetchTaskTypes();
-  }, [userId, crop, task, getToken, supabase]);
+  }, [userId, crop, task, getToken, supabaseClient]);
 
   useEffect(() => {
     return () => {
@@ -113,8 +139,8 @@ export default function HomeScreen() {
     };
   }, [previewUrl]);
 
-  // supabaseがnullの間だけローディングUIをreturn
-  if (!supabase) {
+  // supabaseClientがnullの間だけローディングUIをreturn
+  if (!supabaseClient) {
     return (
       <div className="max-w-md mx-auto p-4 space-y-6">
         <div className="text-center">
@@ -157,7 +183,7 @@ export default function HomeScreen() {
       return;
     }
 
-    if (!supabase) {
+    if (!supabaseClient) {
       toast({
         title: "エラー",
         description: "データベース接続が初期化されていません",
@@ -186,7 +212,10 @@ export default function HomeScreen() {
     };
 
     try {
-      await saveFarmRecord(supabase, userId, record);
+      if (!supabaseClient) {
+        throw new Error("Supabase client not initialized");
+      }
+      await saveFarmRecord(supabaseClient, userId, record);
       toast({
         title: "保存しました",
         description: `${crop}の${task}を記録しました`,
@@ -203,20 +232,32 @@ export default function HomeScreen() {
       }
       setDate(new Date());
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Failed to save record:", error);
+      
+      // JWT expired エラーの場合、セッション切れのメッセージを表示
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && 
+          (error.message.includes('JWT expired') || (error as any)?.code === 'PGRST301')) {
+        toast({
+          title: "セッション切れ",
+          description: "ページを再読み込みしてください。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "保存エラー",
         description: "作業記録の保存に失敗しました",
         variant: "destructive",
       });
-      console.error(error);
     }
   };
 
   const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !userId || !supabase) {
-      if (!supabase) {
+    if (!file || !userId || !supabaseClient) {
+      if (!supabaseClient) {
         toast({
           title: "エラー",
           description: "データベース接続が初期化されていません",
@@ -244,7 +285,10 @@ export default function HomeScreen() {
     }
 
     try {
-      const { path, signedUrl } = await uploadImage(file, supabase, userId);
+      if (!supabaseClient) {
+        throw new Error("Supabase client not initialized");
+      }
+      const { path, signedUrl } = await uploadImage(file, supabaseClient, userId);
       setPhotoPath(path);        // DB 用
       setPreviewUrl(signedUrl);  // その場プレビュー用
       setSelectedFile(file);

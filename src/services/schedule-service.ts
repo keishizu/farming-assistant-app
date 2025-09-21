@@ -6,10 +6,15 @@ import { getSmartCrops } from "./smartCrop-service";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // カスタムスケジュールとスマートスケジュールからカレンダー用のタスクを生成（Supabase対応）
-export const generateTasksFromCrops = async (supabase: SupabaseClient, userId: string, token: string): Promise<Task[]> => {
+export const generateTasksFromCrops = async (
+  supabase: SupabaseClient, 
+  userId: string, 
+  token: string,
+  session?: any
+): Promise<Task[]> => {
   const [customCrops, smartCrops] = await Promise.all([
-    getCustomCrops(supabase, userId, token),
-    getSmartCrops(supabase, userId),
+    getCustomCrops(supabase, userId, token, session),
+    getSmartCrops(supabase, userId, session),
   ]);
 
   const allCrops: CustomCrop[] = [...customCrops, ...smartCrops];
@@ -29,7 +34,7 @@ export const generateTasksFromCrops = async (supabase: SupabaseClient, userId: s
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
         memo: task.memo,
-        color: crop.color?.text || "text-green-700", // CropColorOptionのtextプロパティを使用
+        color: crop.color?.text || "text-green-600", // CropColorOptionのtextプロパティを使用
       });
     });
   });
@@ -46,6 +51,6 @@ export const getTasksForDate = async (supabase: SupabaseClient, userId: string, 
     targetDate >= task.startDate && targetDate <= task.endDate
   ).map(task => ({
     ...task,
-    color: task.color || "text-green-700" // デフォルトの色を設定
+    color: task.color || "text-green-600" // デフォルトの文字色を設定
   }));
 };

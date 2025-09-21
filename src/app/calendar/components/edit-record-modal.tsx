@@ -25,8 +25,8 @@ import { getCustomCrops } from "@/services/customCrop-service";
 import { getSmartCrops } from "@/services/smartCrop-service";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 import { uploadImage, getSignedImageUrl, deleteImage } from "@/services/upload-image";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -43,8 +43,9 @@ export function EditRecordModal({
   record,
   onUpdate,
 }: EditRecordModalProps) {
-  const { userId, getToken } = useAuth();
-  const supabase = useSupabaseWithAuth();
+  const { user, getToken } = useAuth();
+  const userId = user?.id;
+  const supabase = getAuthenticatedClient();
   const [cropName, setCropName] = useState(record.crop);
   const [taskName, setTaskName] = useState(record.task);
   const [memo, setMemo] = useState(record.memo || "");

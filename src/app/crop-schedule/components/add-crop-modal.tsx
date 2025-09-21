@@ -19,8 +19,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
 import { saveCustomCrop, getCustomCrops } from "@/services/customCrop-service";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 interface AddCropModalProps {
   isOpen: boolean;
@@ -29,8 +29,8 @@ interface AddCropModalProps {
 }
 
 export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session, getToken } = useAuth();
+  const supabase = getAuthenticatedClient();
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");
@@ -92,7 +92,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
 
     // 作物名の重複チェック
     try {
-      const token = await session.getToken({ template: "supabase" });
+      const token = await getToken({ template: "supabase" });
       if (!token) {
         throw new Error("認証トークンの取得に失敗しました");
       }

@@ -1,4 +1,4 @@
-import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedClient } from "@/lib/supabase";
 
 // ✅ Supabaseから作物名の一覧を取得（カスタム＋スマート）
 export const getCropNames = async (
@@ -7,7 +7,7 @@ export const getCropNames = async (
 ): Promise<string[]> => {
   if (!userId || !token) throw new Error("User not authenticated");
 
-  const supabase = getAuthenticatedSupabaseClient(token);
+  const supabase = getAuthenticatedClient();
 
   const [customRes, smartRes] = await Promise.all([
     supabase.from("custom_crops").select("name").eq("user_id", userId),
@@ -33,7 +33,7 @@ export const getTaskTypesForCrop = async (
 ): Promise<string[]> => {
   if (!userId || !token) throw new Error("User not authenticated");
 
-  const supabase = getAuthenticatedSupabaseClient(token);
+  const supabase = getAuthenticatedClient();
 
   const [customRes, smartRes] = await Promise.all([
     supabase

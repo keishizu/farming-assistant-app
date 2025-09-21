@@ -9,13 +9,14 @@ import { CropCard } from "@/app/crop-schedule/components/crop-card";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { getCustomCrops, saveCustomCrop, deleteCustomCrop } from "@/services/customCrop-service";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getSupabaseClient } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CropScheduleScreen() {
-  const { session, isLoaded: isSessionLoaded } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session, user, loading } = useAuth();
+  const userId = user?.id;
+  const supabase = getSupabaseClient();
   const [crops, setCrops] = useState<CustomCrop[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -24,36 +25,43 @@ export default function CropScheduleScreen() {
   // マウント時にデータを読み込む
   useEffect(() => {
     const fetchCrops = async () => {
-      if (!isSessionLoaded) {
-        // console.log("セッション読み込み中...");
+      if (loading) {
+        console.log("セッション読み込み中...");
         return;
       }
 
-      if (!session?.user?.id) {
-        // console.log("セッションIDがありません");
+      if (!userId) {
+        console.log("ユーザーIDがありません");
         return;
       }
 
-      if (!supabase) {
-        // console.log("Supabaseクライアントが初期化されていません");
-        return;
-      }
 
       try {
-        const token = await session.getToken({ template: "supabase" });
-        // console.log("取得したトークン:", token ? "存在します" : "null");
+        const token = session?.access_token;
+        console.log("取得したトークン:", token ? "存在します" : "null");
 
         if (!token) {
           throw new Error("認証トークンの取得に失敗しました");
         }
 
-        // console.log("作物データの取得を開始します");
-        const savedCrops = await getCustomCrops(supabase, session.user.id, token);
-        // console.log("取得した作物データ:", savedCrops);
+        console.log("作物データの取得を開始します");
+        const savedCrops = await getCustomCrops(supabase, userId, token, session);
+        console.log("取得した作物データ:", savedCrops);
         setCrops(savedCrops);
         setIsMounted(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error("作物データの取得に失敗しました:", error);
+        
+        // JWT expired エラーの場合、セッション切れのメッセージを表示
+        if (error?.message?.includes('JWT expired') || error?.code === 'PGRST301') {
+          toast({
+            title: "セッション切れ",
+            description: "ページを再読み込みしてください。",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
           title: "エラー",
           description: "作物データの取得に失敗しました",
@@ -63,26 +71,59 @@ export default function CropScheduleScreen() {
     };
 
     fetchCrops();
-  }, [session?.user?.id, supabase, isSessionLoaded, toast]);
+  }, [userId, loading, toast]);
 
   // データが変更された時のみ保存
   useEffect(() => {
     const saveCrops = async () => {
-      if (!isMounted || !session?.user?.id || !supabase) return;
+      if (!isMounted || !userId) return;
 
       try {
-        await saveCustomCrop(supabase, session.user.id, crops);
-      } catch (error) {
+        await saveCustomCrop(supabase, userId, crops, session);
+      } catch (error: any) {
         console.error("データの保存に失敗しました:", error);
+        
+        // JWT expired エラーの場合、セッション切れのメッセージを表示
+        if (error?.message?.includes('JWT expired') || error?.code === 'PGRST301') {
+          toast({
+            title: "セッション切れ",
+            description: "ページを再読み込みしてください。",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // 409エラー（主キー重複）の場合の特別な処理
+        if (error?.message?.includes('duplicate key value violates unique constraint') || 
+            error?.message?.includes('custom_crops_pkey')) {
+          console.warn("Duplicate key error detected, attempting to refresh data...");
+          try {
+            // データを再取得して状態を同期
+            const token = session?.access_token;
+            if (token) {
+              const freshCrops = await getCustomCrops(supabase, userId, token, session);
+              setCrops(freshCrops);
+              toast({
+                title: "警告",
+                description: "データの同期を行いました",
+                variant: "default",
+              });
+              return;
+            }
+          } catch (refreshError) {
+            console.error("Failed to refresh data:", refreshError);
+          }
+        }
+        
         toast({
           title: "エラー",
-          description: "作物データの保存に失敗しました",
+          description: `作物データの保存に失敗しました: ${error.message || '不明なエラー'}`,
           variant: "destructive",
         });
       }
     };
     saveCrops();
-  }, [crops, isMounted, session?.user?.id, supabase, toast]);
+  }, [crops, isMounted, userId, session, toast]);
 
   const handleAddCrop = (newCrop: CustomCrop) => {
     setCrops(prevCrops => [...prevCrops, newCrop]);
@@ -96,25 +137,47 @@ export default function CropScheduleScreen() {
   };
 
   const handleDeleteCrop = async (cropId: string) => {
-    if (!session?.user?.id || !supabase) return;
+    if (!userId) return;
 
     try {
-      await deleteCustomCrop(supabase, session.user.id, cropId);
+      await deleteCustomCrop(supabase, userId, cropId, session);
       setCrops(prevCrops => prevCrops.filter(crop => crop.id !== cropId));
       toast({
          description: "作物を削除しました",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("作物の削除に失敗しました:", error);
+      
+      // JWT expired エラーの場合、セッション切れのメッセージを表示
+      if (error?.message?.includes('JWT expired') || error?.code === 'PGRST301') {
+        toast({
+          title: "セッション切れ",
+          description: "ページを再読み込みしてください。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // 409エラー（主キー重複）の場合の特別な処理
+      if (error?.message?.includes('duplicate key value violates unique constraint') || 
+          error?.message?.includes('custom_crops_pkey')) {
+        toast({
+          title: "警告",
+          description: "作物の削除に失敗しました。データを再読み込みしてください。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "エラー",
-        description: "作物の削除に失敗しました",
+        description: `作物の削除に失敗しました: ${error.message || '不明なエラー'}`,
         variant: "destructive",
       });
     }
   };
 
-  if (!isSessionLoaded || !supabase) {
+  if (loading) {
     return <div className="flex justify-center items-center h-screen">読み込み中...</div>;
   }
 
@@ -126,7 +189,7 @@ export default function CropScheduleScreen() {
         className="text-center"
       >
         <h1 className="text-2xl font-semibold text-green-800">カスタムスケジュール</h1>
-        <p className="text-gray-600">栽培計画を管理</p>
+        <p className="text-gray-600">自分で作成した栽培計画を管理</p>
       </motion.div>
 
       <Card className="p-4">

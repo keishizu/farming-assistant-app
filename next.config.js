@@ -15,6 +15,9 @@ const nextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_USE_SUPABASE_AUTH: 'true',
+  },
 };
 
 module.exports = nextConfig;

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomCrop, CropTask, TaskType, CropColorOption } from "@/types/crop";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { format, addDays } from "date-fns";
 import {
@@ -20,8 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 import { CROP_COLOR_OPTIONS } from "@/types/crop";
 import { AVAILABLE_CROPS, DefaultCrop } from "@/types/default-crops";
 import { saveSmartCrops } from "@/services/smartCrop-service";
-import { useSession } from "@clerk/nextjs";
-import { useSupabaseWithAuth } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getAuthenticatedClient } from "@/lib/supabase";
+import { cropBasicInfo } from "@/types/cropDescriptions";
 
 // 作物オブジェクトの生成を分離したユーティリティ関数
 const createCustomCrop = (
@@ -52,15 +53,29 @@ interface AddCropModalProps {
 }
 
 export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
-  const { session } = useSession();
-  const supabase = useSupabaseWithAuth();
+  const { session } = useAuth();
+  const supabase = getAuthenticatedClient();
   const [selectedCrop, setSelectedCrop] = useState<DefaultCrop | null>(null);
   const [startDate, setStartDate] = useState("");
   const [memo, setMemo] = useState("");
+  const [userEditedMemo, setUserEditedMemo] = useState(false);
   const [color, setColor] = useState<CropColorOption>(CROP_COLOR_OPTIONS[0]);
   const [editingTask, setEditingTask] = useState<CropTask | null>(null);
   const [pendingTasks, setPendingTasks] = useState<CropTask[]>([]);
   const { toast } = useToast();
+
+  // モーダルが開かれた時にフォームをリセット
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedCrop(null);
+      setStartDate("");
+      setMemo("");
+      setUserEditedMemo(false);
+      setColor(CROP_COLOR_OPTIONS[0]);
+      setPendingTasks([]);
+      setEditingTask(null);
+    }
+  }, [isOpen]);
 
   if (!supabase) {
     return null;
@@ -71,6 +86,8 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     if (crop) {
       setSelectedCrop(crop);
       setPendingTasks(crop.tasks);
+      // 作物が変更されたら、ユーザー編集フラグをリセット
+      setUserEditedMemo(false);
     }
   };
 
@@ -133,6 +150,7 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
       setSelectedCrop(null);
       setStartDate("");
       setMemo("");
+      setUserEditedMemo(false);
       setColor(CROP_COLOR_OPTIONS[0]);
       setPendingTasks([]);
       setEditingTask(null);
@@ -178,6 +196,12 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
     setPendingTasks(pendingTasks.filter(task => task.id !== taskId));
   };
 
+  // textarea 変更時に userEditedMemo を true に
+  const handleMemoChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setUserEditedMemo(true);
+    setMemo(e.target.value);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -200,6 +224,39 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* 作物基本情報 */}
+          {selectedCrop && cropBasicInfo[selectedCrop.name] && (
+            <div className="space-y-2">
+              <Label>作物の基本情報</Label>
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">難易度</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[selectedCrop.name].difficulty}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">植え付け適期</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[selectedCrop.name].plantingSeason}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">収穫時期</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[selectedCrop.name].harvestSeason}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">栽培期間</p>
+                  <p className="text-sm text-gray-600">{cropBasicInfo[selectedCrop.name].growingPeriod}</p>
+                </div>
+              </div>
+              
+              {/* アドバイス */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-700 mb-2">アドバイス</p>
+                <p className="text-sm text-blue-600 whitespace-pre-wrap">
+                  {cropBasicInfo[selectedCrop.name].advice}
+                </p>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="color">イメージカラー</Label>
             <Select value={color.bg} onValueChange={(value) => {
@@ -237,8 +294,9 @@ export function AddCropModal({ isOpen, onClose, onAdd }: AddCropModalProps) {
             <Textarea
               id="memo"
               value={memo}
-              onChange={(e) => setMemo(e.target.value)}
+              onChange={handleMemoChange}
               placeholder="メモがあれば入力してください"
+              rows={8}
             />
           </div>
 
