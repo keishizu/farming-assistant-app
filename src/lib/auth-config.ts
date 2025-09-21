@@ -17,6 +17,7 @@ export const publicRoutes = [
 
 // 保護されたルート（認証必要）
 export const protectedRoutes = [
+  '/work-record',
   '/calendar',
   '/crop-schedule',
   '/smart-schedule',

@@ -15,6 +15,16 @@ const hasValidSupabaseConfig = !!(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key'
 );
 
+// デバッグ用ログ（本番環境でも確認できるように）
+console.log('Environment variables check:', {
+  hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...',
+  useSupabaseAuth,
+  hasValidSupabaseConfig,
+  isClient: typeof window !== 'undefined'
+});
+
 // シングルトンのSupabaseクライアントを使用（環境変数が有効な場合のみ）
 const supabase = hasValidSupabaseConfig ? getSupabaseClient() : null;
 

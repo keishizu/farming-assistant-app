@@ -150,12 +150,8 @@ async function supabaseMiddleware(req: Request) {
 
 // メインのミドルウェア関数
 export default async function middleware(req: Request) {
-  // 一時的にミドルウェアの認証チェックを無効化
-  // クライアントサイドでの認証状態管理に任せる
-  return NextResponse.next()
-  
-  // 元の認証チェック（コメントアウト）
-  // return supabaseMiddleware(req)
+  // 認証チェックを有効化
+  return supabaseMiddleware(req)
 }
 
 export const config = {
