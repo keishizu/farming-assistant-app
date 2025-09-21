@@ -3,6 +3,9 @@
 import { AuthForm } from "@/components/auth/AuthForm";
 import { useRouter } from "next/navigation";
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic';
+
 export default function SignUpPage() {
   const router = useRouter();
 

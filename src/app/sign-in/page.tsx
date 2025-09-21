@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic';
+
 // useSearchParams を使用するコンポーネントを分離
 function SignInContent() {
   const router = useRouter();

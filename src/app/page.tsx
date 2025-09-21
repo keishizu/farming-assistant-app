@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
