@@ -2,10 +2,11 @@
 
 import { AuthForm } from "@/components/auth/AuthForm";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function SignInPage() {
+// useSearchParams を使用するコンポーネントを分離
+function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -44,5 +45,36 @@ export default function SignInPage() {
         <AuthForm onSuccess={handleLoginSuccess} />
       </div>
     </div>
+  );
+}
+
+// ローディングフォールバックコンポーネント
+function SignInLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F7F9F4]">
+      <div className="max-w-md w-full space-y-8 px-4">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold text-green-800">
+            ログイン
+          </h2>
+          <p className="mt-2 text-sm text-green-700">
+            アカウントにログインしてください
+          </p>
+        </div>
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
+          <div className="h-10 bg-gray-200 rounded mb-4"></div>
+          <div className="h-10 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInLoading />}>
+      <SignInContent />
+    </Suspense>
   );
 }

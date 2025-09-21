@@ -20,7 +20,12 @@
 - ~~Prisma + SQLite~~ (移行前の構成)
 
 ### 認証
-- **Clerk** (v6.12.9) - 認証・ユーザー管理
+- **Supabase Auth** - 認証・ユーザー管理
+  - メール/パスワード認証
+  - Google OAuth認証
+  - セッション管理と自動リフレッシュ
+  - ページアクセス制御（認証が必要なページの保護）
+  - 認証状態に応じたUI表示制御
 
 ### その他
 - **date-fns** (v3.6.0) - 日付操作ライブラリ
@@ -42,8 +47,7 @@ pnpm dev
 |--------|------|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | SupabaseプロジェクトのURL | ✅ |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase匿名キー | ✅ |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk公開キー | ✅ |
-| `CLERK_SECRET_KEY` | Clerk秘密キー | ✅ |
+| `NEXT_PUBLIC_USE_SUPABASE_AUTH` | Supabase認証の有効化フラグ | ✅ |
 | `SENTRY_DSN` | Sentryエラー監視DSN | ❌ |
 
 `.env.example` を参照してください。
@@ -94,12 +98,17 @@ pnpm dev
 
 ## 主な機能
 
-- ユーザー認証（Clerk）
-- 農作業記録の管理
-- 作物の成長記録
-- 天気情報の表示
-- 作業スケジュール管理
-- 画像アップロード（Supabase Storage）
+- **ユーザー認証（Supabase Auth）**
+  - メール/パスワード認証
+  - Google OAuth認証
+  - セッション管理と自動リフレッシュ
+  - 認証が必要なページの自動リダイレクト
+  - 認証状態に応じたナビゲーション表示制御
+- **農作業記録の管理**
+- **作物の成長記録**
+- **天気情報の表示**
+- **作業スケジュール管理**
+- **画像アップロード（Supabase Storage）**
 
 ## 開発ルール
 

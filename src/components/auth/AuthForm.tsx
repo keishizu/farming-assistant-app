@@ -17,35 +17,67 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ onSuccess, className }: AuthFormProps) {
-  const { signIn, signUp, signInWithGoogle, loading, error } = useAuth();
+  const { signIn, signUp, signInWithGoogle, loading: globalLoading, error } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // ローディング状態を統一（グローバルローディングまたはフォームローディング）
+  const isLoadingState = isLoading || globalLoading;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("signin");
+
+  // タブ切り替え時にフォームの状態をリセット
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setFormError(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setFormError(null);
 
-    if (!email || !password) {
+    // 入力値のトリム処理
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
       setFormError("メールアドレスとパスワードを入力してください。");
       setIsLoading(false);
       return;
     }
 
-    const { error } = await signIn(email, password);
-    if (error) {
-      setFormError(error.message);
+    // メールアドレス形式の基本チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setFormError("有効なメールアドレスを入力してください。");
       setIsLoading(false);
-    } else {
-      // 認証成功時は少し待ってからリダイレクト
-      setTimeout(() => {
-        onSuccess?.();
-      }, 100);
+      return;
+    }
+
+    try {
+      const { error } = await signIn(trimmedEmail, trimmedPassword);
+      if (error) {
+        setFormError(error.message);
+      } else {
+        // 認証成功時は少し待ってからリダイレクト
+        setTimeout(() => {
+          onSuccess?.();
+        }, 100);
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'ログインに失敗しました。');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,55 +86,79 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
     setIsLoading(true);
     setFormError(null);
 
-    if (!email || !password || !confirmPassword) {
+    // 入力値のトリム処理
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    const trimmedConfirmPassword = confirmPassword.trim();
+
+    if (!trimmedEmail || !trimmedPassword || !trimmedConfirmPassword) {
       setFormError("すべての項目を入力してください。");
       setIsLoading(false);
       return;
     }
 
-    if (password !== confirmPassword) {
+    // メールアドレス形式の基本チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setFormError("有効なメールアドレスを入力してください。");
+      setIsLoading(false);
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirmPassword) {
       setFormError("パスワードが一致しません。");
       setIsLoading(false);
       return;
     }
 
-    if (password.length < 6) {
+    if (trimmedPassword.length < 6) {
       setFormError("パスワードは6文字以上で入力してください。");
       setIsLoading(false);
       return;
     }
 
-    const result = await signUp(email, password);
-    if (result.error) {
-      setFormError(result.error.message);
-    } else if (result.message) {
-      setFormError(result.message);
-    } else {
-      // メール確認が不要で即座に認証された場合
-      setFormError("アカウントが作成されました。");
-      // 認証状態の変更イベントが発火するので、手動でリダイレクトは不要
-      // onSuccess?.() は認証状態変更時に自動的に呼ばれる
+    try {
+      const result = await signUp(trimmedEmail, trimmedPassword);
+      if (result.error) {
+        setFormError(result.error.message);
+      } else if (result.message) {
+        setFormError(result.message);
+      } else {
+        // メール確認が不要で即座に認証された場合
+        setFormError("アカウントが作成されました。");
+        // 認証状態の変更イベントが発火するので、手動でリダイレクトは不要
+        // onSuccess?.() は認証状態変更時に自動的に呼ばれる
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '新規登録に失敗しました。');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setFormError(null);
 
-    const { error } = await signInWithGoogle();
-    if (error) {
-      setFormError(error.message);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setFormError(error.message);
+      } else {
+        // Googleログイン成功時は少し待ってからリダイレクト
+        setTimeout(() => {
+          onSuccess?.();
+        }, 100);
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Googleログインに失敗しました。');
+    } finally {
       setIsLoading(false);
-    } else {
-      // Googleログイン成功時は少し待ってからリダイレクト
-      setTimeout(() => {
-        onSuccess?.();
-      }, 100);
     }
   };
 
-  const displayError = formError || error?.message;
+  // フォーム固有のエラーを優先し、グローバルエラーは補完的に使用
+  const displayError = formError || (error?.message && !formError ? error.message : null);
 
   return (
     <Card className={`${className} border-green-200 shadow-lg`}>
@@ -112,7 +168,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="signin" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-green-50">
             <TabsTrigger value="signin" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">ログイン</TabsTrigger>
             <TabsTrigger value="signup" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">新規登録</TabsTrigger>
@@ -123,7 +179,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
             <div className="space-y-4">
               <SupabaseGoogleSignInButton 
                 onClick={handleGoogleSignIn}
-                disabled={isLoading}
+                disabled={isLoadingState}
                 className="w-full"
               >
                 Googleでログイン
@@ -194,8 +250,8 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
-                {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoadingState}>
+                {isLoadingState && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 ログイン
               </Button>
             </form>
@@ -206,7 +262,7 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
             <div className="space-y-4">
               <SupabaseGoogleSignInButton 
                 onClick={handleGoogleSignIn}
-                disabled={isLoading}
+                disabled={isLoadingState}
                 className="w-full"
               >
                 Googleで新規登録
@@ -306,8 +362,8 @@ export function AuthForm({ onSuccess, className }: AuthFormProps) {
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoading}>
-                {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={isLoadingState}>
+                {isLoadingState && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 新規登録
               </Button>
             </form>
