@@ -15,9 +15,7 @@ const nextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_USE_SUPABASE_AUTH: 'true',
-  },
+  // Supabase認証は常に有効（移行完了済み）
 };
 
 module.exports = nextConfig;

@@ -13,9 +13,12 @@ const config: Config = {
     "text-orange-600",
     "text-yellow-600",
     "text-green-600",
+    "text-green-700",
     "text-blue-600",
     "text-purple-600",
     "text-pink-600",
+    "text-gray-500",
+    "text-gray-600",
     "bg-red-100",
     "bg-orange-100",
     "bg-yellow-100",
@@ -23,6 +26,8 @@ const config: Config = {
     "bg-blue-100",
     "bg-purple-100",
     "bg-pink-100",
+    // ナビゲーションアイコン用
+    "group-hover:text-green-600",
   ],
   theme: {
     extend: {

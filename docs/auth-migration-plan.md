@@ -38,8 +38,7 @@ Clerk認証システムからSupabase認証システムへの移行を実施し�
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
-# 認証システム切り替えフラグ
-NEXT_PUBLIC_USE_SUPABASE_AUTH=true
+# 認証システム移行完了（2024年9月21日）
 ```
 
 ### 主要な変更点

@@ -5,36 +5,31 @@ import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
+// Supabase認証を使用（移行完了済み）
 
 // 認証チェック用のヘルパー関数
 async function getAuthenticatedUserId(): Promise<string | null> {
-  if (useSupabaseAuth) {
-    try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const cookieStore = await cookies();
-      
-      // セッションCookieから認証情報を取得
-      const sessionCookie = cookieStore.get('sb-access-token');
-      
-      if (!sessionCookie) {
-        return null;
-      }
-      
-      // トークンを検証
-      const { data: { user }, error } = await supabase.auth.getUser(sessionCookie.value);
-      
-      if (error || !user) {
-        return null;
-      }
-      
-      return user.id;
-    } catch (error) {
-      console.error('Auth error:', error);
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const cookieStore = await cookies();
+    
+    // セッションCookieから認証情報を取得
+    const sessionCookie = cookieStore.get('sb-access-token');
+    
+    if (!sessionCookie) {
       return null;
     }
-  } else {
-    // フォールバック（通常は到達しない）
+    
+    // トークンを検証
+    const { data: { user }, error } = await supabase.auth.getUser(sessionCookie.value);
+    
+    if (error || !user) {
+      return null;
+    }
+    
+    return user.id;
+  } catch (error) {
+    console.error('Auth error:', error);
     return null;
   }
 }

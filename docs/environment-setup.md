@@ -10,7 +10,6 @@
 |--------|------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | SupabaseプロジェクトのURL | Supabase Dashboard > Settings > API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase匿名キー | Supabase Dashboard > Settings > API |
-| `NEXT_PUBLIC_USE_SUPABASE_AUTH` | Supabase認証の有効化フラグ | `true` に設定 |
 
 ### オプション
 
@@ -44,7 +43,6 @@
 # Supabase設定
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-NEXT_PUBLIC_USE_SUPABASE_AUTH=true
 
 # オプション: エラー監視
 SENTRY_DSN=your-sentry-dsn
@@ -106,7 +104,6 @@ Supabase Dashboardで以下の設定を行います：
 4. 以下の環境変数を追加：
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_USE_SUPABASE_AUTH` = `true`
    - `SENTRY_DSN`（オプション）
 
 ### 本番環境のSupabase設定

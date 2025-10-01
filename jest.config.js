@@ -20,7 +20,7 @@ module.exports = {
         strict: true,
         skipLibCheck: true,
         forceConsistentCasingInFileNames: true,
-        types: ['jest', '@testing-library/jest-dom']
+        types: ['jest', '@testing-library/jest-dom', '@testing-library/react']
       }
     }],
   },

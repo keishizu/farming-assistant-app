@@ -74,7 +74,6 @@ Vercel Dashboardで以下の環境変数を設定：
 |--------|-----|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project-id.supabase.co` | SupabaseプロジェクトのURL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `your-supabase-anon-key` | Supabase匿名キー |
-| `NEXT_PUBLIC_USE_SUPABASE_AUTH` | `true` | Supabase認証の有効化フラグ |
 | `SENTRY_DSN` | `your-sentry-dsn` | Sentryエラー監視DSN（オプション） |
 
 ### 2.3 環境別の設定

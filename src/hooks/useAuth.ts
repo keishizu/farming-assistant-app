@@ -5,28 +5,25 @@ import { User, Session, AuthError } from "@supabase/supabase-js";
 import { AuthState, AuthActions, AuthHookReturn, ProfileUpdateData } from "@/lib/types/auth";
 import { getSupabaseClient } from "@/lib/supabase";
 
-const useSupabaseAuth = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH !== 'false';
+// Supabase認証は常に有効（移行完了済み）
 
-// 環境変数のチェック
+// 環境変数のチェック（本番環境では常に有効と仮定）
 const hasValidSupabaseConfig = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL && 
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 // デバッグ用ログ（本番環境でも確認できるように）
-console.log('Environment variables check:', {
-  hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-  hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...',
-  useSupabaseAuth,
-  hasValidSupabaseConfig,
-  isClient: typeof window !== 'undefined'
-});
+// console.log('Environment variables check:', {
+//   hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+//   hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+//   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...',
+//   hasValidSupabaseConfig,
+//   isClient: typeof window !== 'undefined'
+// });
 
-// シングルトンのSupabaseクライアントを使用（環境変数が有効な場合のみ）
-const supabase = hasValidSupabaseConfig ? getSupabaseClient() : null;
+// Supabaseクライアントを常に初期化（認証システム移行完了済み）
+const supabase = getSupabaseClient();
 
 // 型定義は src/lib/types/auth.ts からインポート
 
@@ -37,12 +34,18 @@ export function useAuth(): AuthHookReturn {
   const [error, setError] = useState<AuthError | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // 認証フラグがfalseの場合は何もしない
-  const isAuthEnabled = useSupabaseAuth;
+  // Supabase認証は常に有効
+  const isAuthEnabled = true;
 
   // 認証状態の変更を監視
   useEffect(() => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
+      setLoading(false);
+      return;
+    }
+    
+    if (!supabase) {
+      console.error('Supabase client not initialized');
       setLoading(false);
       return;
     }
@@ -63,7 +66,7 @@ export function useAuth(): AuthHookReturn {
             setUser(null);
             setIsAuthenticated(false);
           } else {
-            console.log('Initial session loaded:', !!session, session?.user?.id);
+            // console.log('Initial session loaded:', !!session, session?.user?.id);
             setSession(session);
             setUser(session?.user ?? null);
             setIsAuthenticated(!!session && !!session.user);
@@ -91,7 +94,7 @@ export function useAuth(): AuthHookReturn {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session?.user?.id);
+        // console.log('Auth state changed:', event, session?.user?.id);
         
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
@@ -108,12 +111,12 @@ export function useAuth(): AuthHookReturn {
           setError(null);
           
           if (event === 'SIGNED_IN') {
-            console.log('SIGNED_IN event detected, current path:', window.location.pathname);
+            // console.log('SIGNED_IN event detected, current path:', window.location.pathname);
             const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback'];
             const isPublicRoute = publicRoutes.includes(window.location.pathname) || window.location.pathname.startsWith('/auth/');
             
             if (isPublicRoute) {
-              console.log('Redirecting to work-record from public route');
+              // console.log('Redirecting to work-record from public route');
               setTimeout(() => {
                 window.location.href = '/work-record';
               }, 200);
@@ -133,8 +136,12 @@ export function useAuth(): AuthHookReturn {
 
   // ログイン
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!supabase) {
+      return { data: null, error: { message: 'Supabase client not initialized' } as AuthError };
     }
 
     setLoading(true);
@@ -162,8 +169,12 @@ export function useAuth(): AuthHookReturn {
 
   // 新規登録
   const signUp = useCallback(async (email: string, password: string) => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!supabase) {
+      return { data: null, error: { message: 'Supabase client not initialized' } as AuthError };
     }
 
     setLoading(true);
@@ -183,25 +194,25 @@ export function useAuth(): AuthHookReturn {
         return { data, error };
       }
       
-      // 新規登録成功時の処理
-      if (data.user) {
-        // セッションが作成された場合（メール確認が不要な場合）
-        if (data.session) {
-          console.log('User created and session established immediately');
-          setUser(data.user);
-          setSession(data.session);
-          setIsAuthenticated(true);
-          return { data, error: null };
-        } else {
-          // メール確認が必要な場合
-          console.log('Email confirmation required');
-          return { 
-            data, 
-            error: null,
-            message: '確認メールを送信しました。メールボックスを確認してください。'
-          };
+        // 新規登録成功時の処理
+        if (data.user) {
+          // セッションが作成された場合（メール確認が不要な場合）
+          if (data.session) {
+            // console.log('User created and session established immediately');
+            setUser(data.user);
+            setSession(data.session);
+            setIsAuthenticated(true);
+            return { data, error: null };
+          } else {
+            // メール確認が必要な場合
+            // console.log('Email confirmation required');
+            return { 
+              data, 
+              error: null,
+              message: '確認メールを送信しました。メールボックスを確認してください。'
+            };
+          }
         }
-      }
       
       return { data, error };
     } catch (err) {
@@ -215,8 +226,12 @@ export function useAuth(): AuthHookReturn {
 
   // Googleでログイン
   const signInWithGoogle = useCallback(async () => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!supabase) {
+      return { data: null, error: { message: 'Supabase client not initialized' } as AuthError };
     }
 
     setLoading(true);
@@ -246,8 +261,12 @@ export function useAuth(): AuthHookReturn {
 
   // サインアウト
   const signOut = useCallback(async () => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
       return { error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!supabase) {
+      return { error: { message: 'Supabase client not initialized' } as AuthError };
     }
 
     setLoading(true);
@@ -275,8 +294,12 @@ export function useAuth(): AuthHookReturn {
 
   // パスワードリセット
   const resetPassword = useCallback(async (email: string) => {
-    if (!isAuthEnabled || !supabase) {
+    if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!supabase) {
+      return { data: null, error: { message: 'Supabase client not initialized' } as AuthError };
     }
 
     setLoading(true);
@@ -303,8 +326,12 @@ export function useAuth(): AuthHookReturn {
 
   // プロフィール更新
   const updateProfile = useCallback(async (updates: ProfileUpdateData) => {
-    if (!isAuthEnabled || !user || !supabase) {
+    if (!isAuthEnabled) {
       return { data: null, error: { message: '認証が無効になっています' } as AuthError };
+    }
+    
+    if (!user || !supabase) {
+      return { data: null, error: { message: 'Supabase client not initialized or user not authenticated' } as AuthError };
     }
 
     setLoading(true);

@@ -31,8 +31,7 @@ describe('API認証テスト', () => {
     process.env = {
       ...originalEnv,
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
-      NEXT_PUBLIC_USE_SUPABASE_AUTH: 'true'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key'
     };
     mockCreateClient.mockReturnValue(mockSupabaseClient as any);
   });
@@ -368,27 +367,5 @@ describe('API認証テスト', () => {
     });
   });
 
-  describe('環境変数のテスト', () => {
-    it('Supabase認証が無効化されている場合は認証エラー', async () => {
-      process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH = 'false';
-
-      const request = new NextRequest('http://localhost:3000/api/comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          nickname: 'テストユーザー',
-          content: 'テストコメント'
-        })
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(401);
-      expect(data.success).toBe(false);
-      expect(data.error).toBe('認証が必要です');
-    });
-  });
+  // 認証システム移行完了により、認証フラグのテストは不要
 });

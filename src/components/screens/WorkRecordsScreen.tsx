@@ -34,14 +34,11 @@ import { getSmartCrops } from "@/services/smartCrop-service";
 import { CustomCrop } from "@/types/crop";
 
 export default function HomeScreen() {
-  // 認証システムの切り替え
-  const useSupabaseAuthMode = process.env.NEXT_PUBLIC_USE_SUPABASE_AUTH === 'true';
-  
-  // 統合認証フック
+  // Supabase認証を使用（移行完了済み）
   const { userId, getToken: getTokenRaw, isLoaded } = useAuthWrapper();
   const supabase = getAuthenticatedClient();
   
-  // Supabase認証モードでは直接Supabaseクライアントを使用
+  // Supabaseクライアントを使用
   const [supabaseClient, setSupabaseClient] = useState(supabase);
   
   // getToken関数をメモ化
@@ -62,22 +59,18 @@ export default function HomeScreen() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Supabaseクライアントの初期化
+  // Supabaseクライアントの初期化（移行完了済み）
   useEffect(() => {
-    if (useSupabaseAuthMode) {
-      import("@/lib/supabase").then(({ supabase: supabaseClient }) => {
-        setSupabaseClient(supabaseClient);
-      });
-    }
-  }, [useSupabaseAuthMode]);
+    import("@/lib/supabase").then(({ supabase: supabaseClient }) => {
+      setSupabaseClient(supabaseClient);
+    });
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
     const fetchCropNames = async () => {
       try {
-        const token = useSupabaseAuthMode ? 
-          await getToken() : 
-          await getToken({ template: "supabase" });
+        const token = await getToken();
         if (!token) throw new Error("Token not found");
         const names = await getCropNames(userId, token);
         setCropNames(names);
@@ -92,9 +85,7 @@ export default function HomeScreen() {
     if (!userId || !supabaseClient) return;
     const fetchCrops = async () => {
       try {
-        const token = useSupabaseAuthMode ? 
-          await getToken() : 
-          await getToken({ template: "supabase" });
+        const token = await getToken();
         if (!token) throw new Error("Token not found");
         const [customCropsData, smartCropsData] = await Promise.all([
           getCustomCrops(supabaseClient, userId, token),
@@ -117,9 +108,7 @@ export default function HomeScreen() {
     }
     const fetchTaskTypes = async () => {
       try {
-        const token = useSupabaseAuthMode ? 
-          await getToken() : 
-          await getToken({ template: "supabase" });
+        const token = await getToken();
         if (!token) throw new Error("Token not found");
         const taskTypes = await getTaskTypesForCrop(userId, crop, token);
         setAvailableTaskTypes(taskTypes);
