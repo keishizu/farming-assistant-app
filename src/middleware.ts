@@ -53,102 +53,72 @@ async function supabaseMiddleware(req: Request) {
   }
   
   try {
-    // リクエストヘッダーからAuthorizationトークンを取得
-    const authHeader = req.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
-    
-    if (token) {
-      // トークンが提供されている場合は検証
-      const supabase = createClient(supabaseUrl, supabaseAnonKey)
-      const { data: { user }, error } = await supabase.auth.getUser(token)
-      
-      if (error || !user) {
-        console.log('Token validation failed:', error?.message)
-        return createRedirectResponse(req, '/sign-in', '認証に失敗しました')
-      }
-      
-      // 認証成功
-      return NextResponse.next()
-    }
-    
     // Cookieからセッション情報を取得
     const cookieHeader = req.headers.get('cookie')
     if (!cookieHeader) {
-      console.log('No cookies found, redirecting to sign-in')
+      console.log('[Middleware] No cookies found, redirecting to sign-in')
       return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
     }
     
-    // SupabaseのセッションCookieをチェック
-    const sessionCookie = cookieHeader
-      .split(';')
-      .find(cookie => cookie.trim().startsWith('sb-'))
+    // デバッグ: すべてのCookieをログ出力
+    const cookies = cookieHeader.split(';').map(c => c.trim())
+    console.log('[Middleware] All cookies:', cookies.map(c => c.split('=')[0]))
+    
+    // SupabaseのセッションCookieを探す（sb-<project-ref>-auth-token形式）
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('sb-') && cookie.includes('auth-token'))
     
     if (!sessionCookie) {
-      console.log('No Supabase session cookie found, redirecting to sign-in')
+      // sb-で始まるCookieを探す（デバッグ用）
+      const sbCookies = cookies.filter(cookie => cookie.startsWith('sb-'))
+      console.log('[Middleware] No Supabase session cookie found. Found sb- cookies:', sbCookies.map(c => c.split('=')[0]))
       return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
     }
     
-    // セッションCookieの値を取得して検証
-    const cookieValue = sessionCookie.split('=')[1]
-    if (!cookieValue || cookieValue === 'null' || cookieValue === 'undefined') {
+    console.log('[Middleware] Found session cookie:', sessionCookie.split('=')[0])
+    
+    // セッションCookieの値を取得
+    const cookieValue = sessionCookie.split('=').slice(1).join('=') // =が値に含まれる可能性があるため
+    if (!cookieValue || cookieValue === 'null' || cookieValue === 'undefined' || cookieValue === '') {
       console.log('Invalid session cookie value, redirecting to sign-in')
       return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
     }
     
-    // デバッグ用: セッションCookieの内容をログ出力
-    console.log('Session cookie value:', cookieValue.substring(0, 50) + '...')
-    
-    // セッションCookieの内容をデコードして検証
+    // セッションCookieからアクセストークンを取得して検証
     try {
-      let sessionData
-      
-      // Base64エンコードされたCookieかどうかをチェック
-      if (cookieValue.startsWith('base64-')) {
-        // Base64エンコードされたCookieの場合
-        const base64Data = cookieValue.substring(7) // "base64-"を除去
-        const decodedData = Buffer.from(base64Data, 'base64').toString('utf-8')
-        sessionData = JSON.parse(decodedData)
-      } else {
-        // 通常のURLエンコードされたCookieの場合
-        const decodedCookie = decodeURIComponent(cookieValue)
-        sessionData = JSON.parse(decodedCookie)
+      // Cookieの値をデコード
+      let sessionData: any
+      try {
+        // URLデコードを試行
+        const decoded = decodeURIComponent(cookieValue)
+        sessionData = JSON.parse(decoded)
+      } catch {
+        // URLデコードが失敗した場合は、そのままJSONパースを試行
+        sessionData = JSON.parse(cookieValue)
       }
       
-      // セッションの詳細情報をログ出力
-      console.log('Session data:', {
-        hasAccessToken: !!sessionData.access_token,
-        hasUser: !!sessionData.user,
-        userId: sessionData.user?.id,
-        expiresAt: sessionData.expires_at,
-        tokenType: sessionData.token_type
-      })
+      // アクセストークンを取得
+      const accessToken = sessionData?.access_token || sessionData?.accessToken
       
-      // セッションの有効性をチェック
-      if (!sessionData.access_token || !sessionData.user) {
-        console.log('Invalid session data in cookie, redirecting to sign-in')
+      if (!accessToken) {
+        console.log('No access token found in session cookie, redirecting to sign-in')
         return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
       }
       
-      // セッションの有効期限をチェック（一時的に無効化）
-      // Supabaseは自動的にリフレッシュトークンで更新するため、ミドルウェアでは厳密な有効期限チェックは行わない
-      if (sessionData.expires_at) {
-        const expiresAt = new Date(sessionData.expires_at * 1000)
-        const now = new Date()
-        console.log('Session expires at:', expiresAt.toISOString())
-        console.log('Current time:', now.toISOString())
-        console.log('Session expired?', expiresAt < now)
-        
-        // 有効期限が切れていても、クライアントサイドでの認証状態管理に任せる
-        // if (expiresAt < now) {
-        //   console.log('Session expired, redirecting to sign-in')
-        //   return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
-        // }
+      // Supabaseでトークンを検証
+      const supabase = createClient(supabaseUrl, supabaseAnonKey)
+      const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+      
+      if (error || !user) {
+        console.log('Token validation failed:', error?.message || 'No user found')
+        return createRedirectResponse(req, '/sign-in', '認証に失敗しました')
       }
       
-      console.log('Valid session cookie found, allowing access')
+      // 認証成功
+      console.log('User authenticated:', user.id)
       return NextResponse.next()
+      
     } catch (error) {
-      console.log('Failed to parse session cookie, redirecting to sign-in:', error)
+      console.log('Failed to parse or validate session cookie:', error)
       return createRedirectResponse(req, '/sign-in', 'ログインが必要です')
     }
     
