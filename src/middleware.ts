@@ -95,9 +95,17 @@ async function supabaseMiddleware(req: Request) {
       // Base64エンコードされたCookieかどうかをチェック
       if (cookieValue.startsWith('base64-')) {
         // Base64エンコードされたCookieの場合
+        // Edge Runtime対応: Bufferの代わりにatob()とTextDecoderを使用
         try {
           const base64Data = cookieValue.substring(7) // "base64-"を除去
-          const decodedData = Buffer.from(base64Data, 'base64').toString('utf-8')
+          // Edge Runtimeで利用可能なatob()を使用してBase64デコード
+          const binaryString = atob(base64Data)
+          // バイナリ文字列をUTF-8文字列に変換
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          const decodedData = new TextDecoder().decode(bytes)
           sessionData = JSON.parse(decodedData)
           console.log('[Middleware] Successfully decoded base64 cookie')
           console.log('[Middleware] Decoded session data keys:', Object.keys(sessionData))
