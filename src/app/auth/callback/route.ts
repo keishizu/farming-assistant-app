@@ -48,13 +48,20 @@ export async function GET(request: NextRequest) {
       const projectId = supabaseUrl.split('//')[1]?.split('.')[0] || 'default'
       const cookieName = `sb-${projectId}-auth-token`
       
-      cookieStore.set(cookieName, JSON.stringify(sessionData), {
+      // Base64エンコードして保存（Supabaseのクライアントライブラリと同じ形式）
+      const jsonString = JSON.stringify(sessionData)
+      const base64Encoded = Buffer.from(jsonString, 'utf-8').toString('base64')
+      const cookieValue = `base64-${base64Encoded}`
+      
+      cookieStore.set(cookieName, cookieValue, {
         httpOnly: false, // クライアントサイドでもアクセス可能にする
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7, // 7日
         path: '/',
       })
+      
+      console.log('[Auth Callback] Session cookie saved:', cookieName, 'Length:', cookieValue.length)
       
       // 302リダイレクト
       const redirectUrl = new URL(next, request.url)
