@@ -11,25 +11,50 @@ export async function GET(request: NextRequest) {
 
   console.log('Auth callback received:', { code: !!code, next })
 
+  // キャッシュを無効化するヘッダーを設定（304エラーを防ぐため）
+  const headers = new Headers()
+  headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  headers.set('Pragma', 'no-cache')
+  headers.set('Expires', '0')
+
   if (code) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
+    
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && data.session) {
       // 認証成功 - 作業記録画面にリダイレクト
       console.log('Email confirmation successful, redirecting to:', next)
       console.log('User authenticated:', data.session.user?.id)
-      return NextResponse.redirect(new URL(next, request.url))
+      
+      // 302リダイレクト（一時的なリダイレクト）を使用（307ではなく302）
+      const redirectUrl = new URL(next, request.url)
+      return NextResponse.redirect(redirectUrl, {
+        status: 302,
+        headers,
+      })
     } else if (error) {
       console.error('Email confirmation failed:', error.message)
       // エラーの場合はログインページにリダイレクトし、エラーメッセージを表示
       const signInUrl = new URL('/sign-in', request.url)
       signInUrl.searchParams.set('error', 'メール確認に失敗しました。もう一度お試しください。')
-      return NextResponse.redirect(signInUrl)
+      return NextResponse.redirect(signInUrl, {
+        status: 302,
+        headers,
+      })
     }
   }
 
   // 認証失敗またはコードがない場合はログインページにリダイレクト
   console.log('No code provided, redirecting to sign-in')
-  return NextResponse.redirect(new URL('/sign-in', request.url))
+  return NextResponse.redirect(new URL('/sign-in', request.url), {
+    status: 302,
+    headers,
+  })
 }

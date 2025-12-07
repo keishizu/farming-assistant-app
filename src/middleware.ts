@@ -21,7 +21,17 @@ function createRedirectResponse(req: Request, path: string, message?: string) {
     url.searchParams.set('redirectTo', originalUrl)
   }
   
-  return NextResponse.redirect(url)
+  // キャッシュを無効化するヘッダーを設定（304エラーを防ぐため）
+  const headers = new Headers()
+  headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  headers.set('Pragma', 'no-cache')
+  headers.set('Expires', '0')
+  
+  // 302リダイレクト（一時的なリダイレクト）を使用
+  return NextResponse.redirect(url, {
+    status: 302,
+    headers,
+  })
 }
 
 // Supabase認証用のミドルウェア
